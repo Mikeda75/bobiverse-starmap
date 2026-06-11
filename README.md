@@ -4,7 +4,7 @@ An interactive, fan-made companion to Dennis E. Taylor's **Bobiverse** series, c
 (*We Are Legion (We Are Bob)*, *For We Are Many*, *All These Worlds*, *Heaven's River*).
 No spoilers for *Not Till We Are Lost*.
 
-**[🌌 Open the starmap](https://YOUR-PAGES-URL/)**
+**[🌌 Open the starmap](https://mikeda75.github.io/bobiverse-starmap/)**
 
 ## Features
 
