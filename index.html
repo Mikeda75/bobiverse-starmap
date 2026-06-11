@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Bobiverse — Starmap &amp; Chronicle (Books 1–4)</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:rgba(13,20,36,.92); --panel-border:rgba(110,160,255,.18);
+    --text:#dce6f5; --dim:#8b9bb4; --accent:#38e1ff;
+    --b1:#4fc3f7; --b2:#81c784; --b3:#ffb74d; --b4:#ba68c8;
+    --cat-earth:#4f8ef7; --cat-bob:#38e1ff; --cat-colony:#5dde8f;
+    --cat-alien:#c77dff; --cat-battle:#ff6b5e; --cat-explored:#9aa7b8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    display:flex; flex-direction:column;
+  }
+  /* ---------- header ---------- */
+  header{
+    display:flex; align-items:center; gap:18px; padding:10px 18px;
+    border-bottom:1px solid var(--panel-border);
+    background:linear-gradient(180deg, rgba(13,20,36,.95), rgba(13,20,36,.75));
+    z-index:20; flex-wrap:wrap;
+  }
+  header h1{font-size:17px; font-weight:600; letter-spacing:.5px; white-space:nowrap;}
+  header h1 .sub{color:var(--dim); font-weight:400; font-size:12px; margin-left:8px;}
+  nav{display:flex; gap:6px;}
+  nav button{
+    background:transparent; border:1px solid transparent; color:var(--dim);
+    font:inherit; font-size:13px; padding:6px 14px; border-radius:18px; cursor:pointer;
+    transition:all .15s;
+  }
+  nav button:hover{color:var(--text);}
+  nav button.active{
+    color:#04121a; background:var(--accent); border-color:var(--accent); font-weight:600;
+  }
+  .spacer{flex:1;}
+  .hint{font-size:11px; color:var(--dim);}
+  /* ---------- views ---------- */
+  main{flex:1; position:relative; overflow:hidden;}
+  .view{position:absolute; inset:0; display:none;}
+  .view.active{display:block;}
+  /* ---------- map ---------- */
+  #mapCanvas{position:absolute; inset:0; width:100%; height:100%; cursor:grab;}
+  #mapCanvas.dragging{cursor:grabbing;}
+  #legend{
+    position:absolute; left:14px; top:12px; background:var(--panel);
+    border:1px solid var(--panel-border); border-radius:10px; padding:10px 14px;
+    font-size:11.5px; line-height:1.9; pointer-events:none;
+  }
+  #legend .sw{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:baseline;}
+  #legend .ln{display:inline-block; width:18px; height:0; border-top:2px solid; margin-right:7px; vertical-align:middle;}
+  #legend .ln.dash{border-top-style:dashed;}
+  #yearbox, #treeYearbox{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:16px;
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
+    padding:10px 18px; display:flex; align-items:center; gap:14px; min-width:440px;
+  }
+  #yearbox input[type=range], #treeYearbox input[type=range]{flex:1; accent-color:var(--accent);}
+  #yearLabel, #treeYearLabel{font-size:14px; font-weight:600; min-width:78px; text-align:center; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .yb-cap{font-size:11px; color:var(--dim); white-space:nowrap;}
+  #resetView{
+    position:absolute; right:14px; bottom:16px; background:var(--panel); color:var(--dim);
+    border:1px solid var(--panel-border); border-radius:8px; padding:7px 12px;
+    font:inherit; font-size:12px; cursor:pointer;
+  }
+  #resetView:hover{color:var(--text); border-color:var(--accent);}
+  /* ---------- guided tours ---------- */
+  #tourbox{
+    position:absolute; left:14px; bottom:16px; width:282px; background:var(--panel);
+    border:1px solid var(--panel-border); border-radius:12px; padding:12px 14px; font-size:12px;
+  }
+  .tour-title{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim); margin-bottom:8px;}
+  .tourbtn{
+    display:block; width:100%; text-align:left; font:inherit; font-size:12.5px; color:var(--text);
+    background:rgba(56,225,255,.05); border:1px solid var(--panel-border); border-radius:8px;
+    padding:7px 10px; margin-bottom:6px; cursor:pointer; transition:all .15s;
+  }
+  .tourbtn:hover{border-color:var(--accent); background:rgba(56,225,255,.14);}
+  #tourCard .stop-title{font-size:13.5px; font-weight:600; margin-bottom:4px;}
+  #tourCard .stop-year{color:var(--accent); font-weight:700; margin-right:7px; font-variant-numeric:tabular-nums;}
+  #tourCard .stop-text{font-size:12px; color:#b8c5da; line-height:1.5; margin-bottom:10px;}
+  .tour-controls{display:flex; align-items:center; gap:7px;}
+  .tour-controls button{
+    font:inherit; font-size:12px; background:transparent; color:var(--text);
+    border:1px solid var(--panel-border); border-radius:7px; padding:4px 10px; cursor:pointer;
+  }
+  .tour-controls button:hover:not(:disabled){border-color:var(--accent);}
+  .tour-controls button:disabled{opacity:.3; cursor:default;}
+  #tourProgress{color:var(--dim); font-size:11px; flex:1; text-align:center; font-variant-numeric:tabular-nums;}
+  /* clickable chips & local maps */
+  .chipbtn{cursor:pointer; font:inherit; transition:all .15s;}
+  .chipbtn:hover{border-color:var(--accent); color:var(--accent);}
+  .localmap{margin-top:4px;}
+  .localmap svg{width:100%; height:auto; display:block; border:1px solid var(--panel-border); border-radius:10px;}
+  /* ---------- detail sidebar ---------- */
+  #detail{
+    position:absolute; right:0; top:0; bottom:0; width:360px; max-width:90vw;
+    background:var(--panel); border-left:1px solid var(--panel-border);
+    transform:translateX(105%); transition:transform .25s ease;
+    overflow-y:auto; padding:18px 20px 30px; backdrop-filter:blur(6px);
+  }
+  #detail.open{transform:translateX(0);}
+  #detail .close{
+    float:right; background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; line-height:1;
+  }
+  #detail .close:hover{color:var(--text);}
+  #detail h2{font-size:20px; margin-bottom:2px;}
+  #detail .real{color:var(--dim); font-size:12px; margin-bottom:10px;}
+  .badge{
+    display:inline-block; font-size:10.5px; padding:3px 10px; border-radius:12px;
+    border:1px solid; margin:0 6px 12px 0; letter-spacing:.4px; text-transform:uppercase;
+  }
+  #detail h3{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); margin:16px 0 7px;}
+  #detail p{font-size:13px; line-height:1.55;}
+  .planet{margin-bottom:9px; font-size:12.5px; line-height:1.5;}
+  .planet b{color:var(--accent); font-weight:600;}
+  .chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .chip{
+    font-size:11px; background:rgba(110,160,255,.1); border:1px solid var(--panel-border);
+    border-radius:11px; padding:3px 9px; color:var(--text);
+  }
+  .ev{
+    border-left:3px solid; padding:6px 10px; margin-bottom:8px; border-radius:0 6px 6px 0;
+    background:rgba(110,160,255,.06); cursor:pointer; transition:background .15s;
+  }
+  .ev:hover{background:rgba(110,160,255,.14);}
+  .ev .y{font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums;}
+  .ev .t{font-size:12.5px; font-weight:600;}
+  /* ---------- bob tree ---------- */
+  #treeWrap{position:absolute; inset:0; overflow:hidden; cursor:grab;}
+  #treeWrap.dragging{cursor:grabbing;}
+  #treeSvg{width:100%; height:100%; display:block;}
+  #treeLegend{
+    position:absolute; left:14px; top:12px; background:var(--panel);
+    border:1px solid var(--panel-border); border-radius:10px; padding:10px 14px;
+    font-size:11.5px; line-height:1.9; pointer-events:none;
+  }
+  #treeLegend .sw{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px;}
+  #treeReset{
+    position:absolute; right:14px; bottom:16px; background:var(--panel); color:var(--dim);
+    border:1px solid var(--panel-border); border-radius:8px; padding:7px 12px;
+    font:inherit; font-size:12px; cursor:pointer;
+  }
+  #treeReset:hover{color:var(--text); border-color:var(--accent);}
+  .bobnode{cursor:pointer;}
+  .bobnode rect{fill:rgba(13,20,36,.92); stroke-width:1.5; transition:filter .15s;}
+  .bobnode:hover rect{filter:brightness(1.6);}
+  .bobnode text{pointer-events:none;}
+  .pseudonode rect{fill:rgba(13,20,36,.5); stroke:rgba(139,155,180,.5); stroke-dasharray:5 4;}
+  .pseudonode text{fill:var(--dim);}
+  .bobnode.flash rect{stroke-width:3;}
+  .bobnode.flash{animation:nodeflash .5s ease-in-out 3;}
+  @keyframes nodeflash{50%{opacity:.3;}}
+  /* ---------- timeline ---------- */
+  #timeline-view{overflow-y:auto; padding:30px 0 60px;}
+  .tl-wrap{max-width:860px; margin:0 auto; padding:0 24px;}
+  .tl-filters{display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; align-items:center;}
+  .tl-filters .fl{font-size:12px; color:var(--dim); margin-right:4px;}
+  .bookchip{
+    font:inherit; font-size:12px; padding:5px 13px; border-radius:15px; cursor:pointer;
+    background:transparent; border:1.5px solid var(--dim); color:var(--dim); transition:all .15s;
+  }
+  .bookchip.on{color:#04121a; font-weight:600;}
+  .bookchip[data-book="1"].on{background:var(--b1); border-color:var(--b1);}
+  .bookchip[data-book="2"].on{background:var(--b2); border-color:var(--b2);}
+  .bookchip[data-book="3"].on{background:var(--b3); border-color:var(--b3);}
+  .bookchip[data-book="4"].on{background:var(--b4); border-color:var(--b4);}
+  .tl-book-header{
+    font-size:15px; font-weight:600; margin:34px 0 4px; padding-top:10px;
+  }
+  .tl-book-header .bt{font-size:12px; color:var(--dim); font-weight:400; font-style:italic; margin-left:8px;}
+  .tl-line{position:relative; padding-left:30px;}
+  .tl-line::before{
+    content:""; position:absolute; left:9px; top:0; bottom:0; width:2px;
+    background:linear-gradient(180deg, rgba(110,160,255,.3), rgba(110,160,255,.08));
+  }
+  .tl-ev{position:relative; padding:11px 14px; margin:10px 0; background:var(--panel);
+    border:1px solid var(--panel-border); border-radius:10px;}
+  .tl-ev::before{
+    content:""; position:absolute; left:-27px; top:18px; width:10px; height:10px;
+    border-radius:50%; background:var(--dot,#fff); box-shadow:0 0 8px var(--dot,#fff);
+  }
+  .tl-ev .head{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+  .tl-ev .yr{font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--dot,#fff);}
+  .tl-ev .yr .ap{font-size:10px; color:var(--dim); font-weight:400;}
+  .tl-ev .ti{font-size:14px; font-weight:600;}
+  .tl-ev .desc{font-size:12.5px; color:#b8c5da; line-height:1.5; margin-top:5px;}
+  .tl-ev .meta{margin-top:7px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .sysbtn{
+    font:inherit; font-size:11px; padding:2px 10px; border-radius:11px; cursor:pointer;
+    background:rgba(56,225,255,.08); border:1px solid rgba(56,225,255,.35); color:var(--accent);
+  }
+  .sysbtn:hover{background:rgba(56,225,255,.2);}
+  .tag{font-size:10px; padding:2px 8px; border-radius:9px; background:rgba(110,160,255,.1); color:var(--dim);}
+  /* ---------- lore ---------- */
+  #lore-view{overflow-y:auto; padding:34px 24px 60px;}
+  .lore-grid{max-width:1060px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px;}
+  .lore-card{background:var(--panel); border:1px solid var(--panel-border); border-radius:12px; padding:18px 20px;}
+  .lore-card h3{font-size:15px; margin-bottom:8px; color:var(--accent);}
+  .lore-card p{font-size:12.5px; line-height:1.6; color:#c3cfe2;}
+  .lore-card.about{grid-column:1 / -1; background:rgba(56,225,255,.05);}
+  .lore-card.about h3{color:var(--text);}
+  ::-webkit-scrollbar{width:10px;} ::-webkit-scrollbar-thumb{background:#23314d; border-radius:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+<header>
+  <h1>THE BOBIVERSE <span class="sub">Starmap &amp; Chronicle · Books 1–4</span></h1>
+  <nav>
+    <button id="tab-map" class="active">🌌 Starmap</button>
+    <button id="tab-timeline">🕰 Timeline</button>
+    <button id="tab-tree">🧬 Bob Tree</button>
+    <button id="tab-lore">📖 Factions &amp; Lore</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="hint" id="headerHint">drag to rotate · scroll to zoom · shift-drag to pan · click a star</div>
+</header>
+<main>
+  <!-- ======== MAP VIEW ======== -->
+  <section id="map-view" class="view active">
+    <canvas id="mapCanvas"></canvas>
+    <div id="legend">
+      <div><span class="sw" style="background:var(--cat-earth)"></span>Earth / Sol</div>
+      <div><span class="sw" style="background:var(--cat-bob)"></span>Bob stronghold</div>
+      <div><span class="sw" style="background:var(--cat-colony)"></span>Human colony</div>
+      <div><span class="sw" style="background:var(--cat-alien)"></span>Alien homeworld</div>
+      <div><span class="sw" style="background:var(--cat-battle)"></span>Battle site</div>
+      <div><span class="sw" style="background:var(--cat-explored)"></span>Surveyed / harvested</div>
+      <div style="margin-top:4px"><span class="ln" style="border-color:rgba(56,225,255,.8)"></span>Bob expansion</div>
+      <div><span class="ln" style="border-color:rgba(93,222,143,.8)"></span>Colony fleet</div>
+      <div><span class="ln dash" style="border-color:rgba(255,107,94,.9)"></span>The Others</div>
+      <div><span class="ln dash" style="border-color:rgba(255,200,90,.9)"></span>Bender (lost)</div>
+    </div>
+    <div id="yearbox">
+      <span class="yb-cap">2133</span>
+      <input type="range" id="yearSlider" min="2133" max="2340" value="2340" step="1">
+      <span class="yb-cap">2334</span>
+      <span id="yearLabel">All time</span>
+    </div>
+    <button id="resetView">⟲ Reset view</button>
+    <div id="tourbox">
+      <div id="tourMenu">
+        <div class="tour-title">🚀 Guided tours</div>
+        <div id="tourList"></div>
+      </div>
+      <div id="tourCard" style="display:none">
+        <div class="tour-title" id="tourName"></div>
+        <div class="stop-title"><span class="stop-year" id="tourYear"></span><span id="tourStopTitle"></span></div>
+        <div class="stop-text" id="tourStopText"></div>
+        <div class="tour-controls">
+          <button id="tourPrev">‹ Prev</button>
+          <span id="tourProgress"></span>
+          <button id="tourNext">Next ›</button>
+          <button id="tourEnd" title="End tour">✕</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ======== TIMELINE VIEW ======== -->
+  <section id="timeline-view" class="view">
+    <div class="tl-wrap">
+      <div class="tl-filters">
+        <span class="fl">Filter by book:</span>
+        <button class="bookchip on" data-book="1">1 · We Are Legion</button>
+        <button class="bookchip on" data-book="2">2 · For We Are Many</button>
+        <button class="bookchip on" data-book="3">3 · All These Worlds</button>
+        <button class="bookchip on" data-book="4">4 · Heaven's River</button>
+      </div>
+      <div id="tlContent"></div>
+    </div>
+  </section>
+  <!-- ======== BOB TREE VIEW ======== -->
+  <section id="tree-view" class="view">
+    <div id="treeWrap"><svg id="treeSvg"></svg></div>
+    <div id="treeLegend">
+      <div><span class="sw" style="background:#5dde8f"></span>Active</div>
+      <div><span class="sw" style="background:#ff6b5e"></span>Destroyed (permanent)</div>
+      <div><span class="sw" style="background:#ffb74d"></span>Killed, restored from backup</div>
+      <div><span class="sw" style="background:#ffd54f"></span>Lost &amp; found (Bender)</div>
+      <div><span class="sw" style="background:#8b9bb4"></span>Self-deleted (Homer)</div>
+      <div style="margin-top:4px;color:var(--dim)">dashed = lineage unrecorded on the wiki</div>
+    </div>
+    <div id="treeYearbox">
+      <span class="yb-cap">2133</span>
+      <input type="range" id="treeYearSlider" min="2133" max="2340" value="2340" step="1">
+      <span class="yb-cap">2334</span>
+      <span id="treeYearLabel">All time</span>
+    </div>
+    <button id="treeReset">⟲ Reset view</button>
+  </section>
+  <!-- ======== LORE VIEW ======== -->
+  <section id="lore-view" class="view">
+    <div class="lore-grid" id="loreGrid"></div>
+  </section>
+  <aside id="detail">
+    <button class="close" id="detailClose">✕</button>
+    <div id="detailBody"></div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+/* ============================================================
+   DATA — compiled from books 1–4 (We Are Legion … Heaven's River)
+   Star positions use real J2000 RA/Dec/distance where the star is real.
+   ============================================================ */
+const SYSTEMS = [
+{id:"sol",name:"Sol",realStar:"Sol (the Sun)",ra:0,dec:0,dist:0,category:"earth",firstBook:1,
+ planets:[{name:"Earth",description:"Humanity's devastated homeworld; after the nuclear holocaust of 2134 and nuclear winter, the surviving enclaves (FAITH/USE remnants, Brazilian Empire, the Spits and others) are gradually evacuated offworld by the Bobs."},
+          {name:"Luna & orbital shipyards",description:"Staging area for the exodus colony-ship program; sabotaged repeatedly by the terrorist group VEHEMENT."}],
+ summary:"Origin of Bob Johansson, who died in 2016, was revived as a replicant by the theocratic state FAITH, and launched as a Von Neumann probe in 2133 just as Earth's powers nuked each other. Riker returns to find a post-apocalyptic Earth, destroys the Brazilian probes in the Battle of Sol, and spends decades running the food-relief and emigration effort while fighting VEHEMENT sabotage. The Others' harvesting armada is defeated here in the climactic Battle of Sol, after which the last humans are evacuated and Earth is left to heal.",
+ keyFigures:["Bob-1","Riker (Will)","Homer","Howard","Colonel Butterworth","Medeiros","VEHEMENT","FAITH","The Others"]},
+{id:"epsilon-eridani",name:"Epsilon Eridani",realStar:"Epsilon Eridani",ra:53.2327,dec:-9.4583,dist:10.5,category:"bob-base",firstBook:1,
+ planets:[{name:"Ragnarök (EE-2)",description:"Marginal habitable-zone world with limited water, slowly terraformed by Bill using comet bombardment; later hosts settlers."}],
+ summary:"Bob-1's first destination (arrival 2144) and the cradle of the Bobiverse: the first generation of clones — Bill, Riker, Homer, Milo, Mario — was built here. Bill stays permanently, turning the system into the Bobs' R&D hub, where SCUT instant communication, SURGE drives, android 'mannies' and the star-killer weapon are developed. It hosts the moot VR and serves as the communication and cultural center of the Bobiverse through all four books.",
+ keyFigures:["Bob-1","Bill","Garfield","Riker","Milo","Mario"]},
+{id:"delta-eridani",name:"Delta Eridani",realStar:"Delta Eridani (Rana)",ra:55.812,dec:-9.7653,dist:29.5,category:"alien",firstBook:1,
+ planets:[{name:"Eden (DE-4)",description:"Lush habitable world, home of the stone-age Deltans plus predatory gorilloids and hippogriffs; later also hosts the human settlements Camelot and Caerleon."}],
+ summary:"Bob-1's second stop (2165), where he discovers the Deltans — the first sentient alien species encountered. As 'Bawbe' he guides the tribe of Archimedes, fighting off gorilloid predators and nudging Deltan technology forward while wrestling with Prime-Directive-style ethics. Marvin, Luke and Bender are cloned here; Bender's departure and disappearance sets up Heaven's River.",
+ keyFigures:["Bob-1","Archimedes & the Deltans","Marvin","Luke","Bender"]},
+{id:"omicron2-eridani",name:"Omicron² Eridani",realStar:"40 Eridani (Keid)",ra:63.818,dec:-7.6528,dist:16.3,category:"human-colony",firstBook:1,
+ planets:[{name:"Vulcan",description:"Habitable world with a native ecosystem (including the predatory 'brontos'); site of the Landing City colony and Howard's long residence."},
+          {name:"Romulus",description:"Second habitable planet, colonized by Earth survivors including the Spits enclave; later an administrative center of human space."}],
+ summary:"Triple star system explored by Milo, whose report of two habitable planets — named Vulcan and Romulus for obvious Trek reasons — makes it the prime destination for Earth's refugees. Riker's exodus fleet delivers the first colonists, and Howard becomes the resident Bob, repelling a Medeiros attack and falling in love with colonist Bridget Brodeur. It grows into one of the most populous centers of post-Earth humanity.",
+ keyFigures:["Milo","Riker (Will)","Howard","Bridget","Medeiros","Colonel Butterworth"]},
+{id:"alpha-centauri",name:"Alpha Centauri",realStar:"Alpha Centauri AB",ra:219.902,dec:-60.8339,dist:4.37,category:"battle-site",firstBook:1,
+ planets:[],
+ summary:"Binary system with only a lifeless rocky planet in the habitable zone. The European Union probe sent here was ambushed and destroyed by the Brazilian probe Medeiros; Bobs Calvin and Goku retook the system in 2163 in one of the first Medeiros battles. It later becomes Bart's base and a major manufacturing hub, churning out hulls and weapons for the defense of Sol against the Others.",
+ keyFigures:["Calvin","Goku","Bart","Medeiros"]},
+{id:"82-eridani",name:"82 Eridani",realStar:"82 G. Eridani (HD 20794)",ra:49.982,dec:-43.0697,dist:19.7,category:"battle-site",firstBook:2,
+ planets:[{name:"Valhalla",description:"Habitable-zone world settled by the Canadian/Spits-escorted colony fleet."},
+          {name:"Takamagahara",description:"Habitable-zone world settled by the Japanese colony group."},
+          {name:"Asgard",description:"Moon of Valhalla with a thin but workable atmosphere."}],
+ summary:"The series' recurring Medeiros battleground: Milo was destroyed here by Brazilian probes, and three more battles follow as new Medeiros copies keep returning, killing several Bobs. Despite the danger, colony ships piloted by Isaac, Jack and Owen deliver Japanese and Canadian settlers to Takamagahara and Valhalla. The final Medeiros infestation is hunted down and eradicated here, ending the Brazilian probe war.",
+ keyFigures:["Milo","Mack","Isaac","Jack","Owen","Medeiros","Riker (Will)"]},
+{id:"delta-pavonis",name:"Delta Pavonis",realStar:"Delta Pavonis",ra:302.182,dec:-66.182,dist:19.9,category:"alien",firstBook:2,
+ planets:[{name:"Pav homeworld (DP-4)",description:"Homeworld of the Pav, an aggressive pre-industrial avian-reptilian species; strip-harvested and left barren by the Others."}],
+ summary:"Homeworld of the Pav, first studied by Jacques. When the Others target it for harvesting, the Bobs make a stand in the Battle of Delta Pavonis, bloodying the Others' fleet but failing to save the planet. The Bobs snatch roughly 15,000 Pav into stasis — the only survivors of their species — and later resettle them at HIP 84051. The battle puts the Bobs and Earth at the top of the Others' target list.",
+ keyFigures:["Jacques","Steve","The Others","The Pav","Bill"]},
+{id:"beta-hydri",name:"Beta Hydri",realStar:"Beta Hydri",ra:6.4378,dec:-77.2542,dist:24.3,category:"explored",firstBook:2,
+ planets:[{name:"Beta Hydri 4",description:"Formerly life-bearing world found sterilized — all biomass and metals harvested by the Others, who left a crashed cargo ship and mechanical 'ants' behind."}],
+ summary:"Mario arrives to find the entire system strip-mined of heavy elements and the fourth planet's biosphere annihilated — humanity's first evidence of the Others. Mario salvages data from a crashed Others cargo vessel and studies the mechanical ants that attack his roamers, beginning the intelligence effort that eventually traces the Others back to GL 877.",
+ keyFigures:["Mario","The Others"]},
+{id:"epsilon-indi",name:"Epsilon Indi",realStar:"Epsilon Indi",ra:330.84,dec:-56.786,dist:11.9,category:"human-colony",firstBook:1,
+ planets:[{name:"Big Top",description:"Jovian planet just outside the habitable zone, host of the system's famous moon."},
+          {name:"Quilt (Klown Kar Planet)",description:"Moon of Big Top with orbit and axis tipped ~90°, producing wild patchwork climate zones; renamed Quilt and colonized by the Australian-led settlers."}],
+ summary:"Explored by Linus, who finds the bizarre tilted moon the Bobs nickname the Klown Kar Planet. Henry Roberts — the replicant of an Australian probe pilot, the only non-Bob human replicant of the era — guides his colonists here, and the moon, renamed Quilt, becomes a thriving colony. Howard and the resurrected replicant Bridget later use it as a base for xenobiology work.",
+ keyFigures:["Linus","Henry Roberts","Howard","Bridget"]},
+{id:"eta-cassiopeiae",name:"Eta Cassiopeiae",realStar:"Eta Cassiopeiae (Achird)",ra:12.276,dec:57.8155,dist:19.4,category:"human-colony",firstBook:2,
+ planets:[{name:"Poseidon",description:"Ocean world with floating vegetation mats and predatory kraken; colonized with mat-based and later suspended aerial cities."}],
+ summary:"Binary system first reached by Mulder. Colonists from Micronesia, the Maldives, Vanuatu and St. Lucia settle the water world Poseidon on giant floating mats, battling storms and kraken. The colony's authoritarian ruling council eventually clashes with the Bobs, and resident Bob Marcus breaks the standoff by introducing suspended cities and backing the colonists' freedom.",
+ keyFigures:["Mulder","Marcus","Skinner","Howard","Bridget"]},
+{id:"eta-leporis",name:"Eta Leporis",realStar:"Eta Leporis",ra:89.101,dec:-14.168,dist:49.1,category:"alien",firstBook:4,
+ planets:[{name:"Heaven's River",description:"Colossal topopolis — a spaghetti-strand habitat coiled around the star, containing four continent-length river systems (Arcadia, Paradise, Utopia, Nirvana) and housing trillions of Quinlans at enforced Iron Age tech levels."},
+          {name:"Quin",description:"The Quinlans' abandoned, ecologically ruined homeworld."}],
+ summary:"Home system of the Quinlans and the centerpiece of Heaven's River. Bender was captured here decades earlier by the megastructure's controlling intelligence; Bob-1 arrives in 2331 to investigate, and an infiltration team in Quinlan-form mannies (Bob, Bill, Garfield and Bridget, later joined by Hugh of the Skippies) travels the great rivers to find and free Bender's matrix. They contend with the Crew and the Resistance, and ultimately befriend ANEC, the topopolis's true AI.",
+ keyFigures:["Bob-1","Bender","Bridget","Bill","Garfield","Hugh","Quinlans","ANEC"]},
+{id:"gliese-877",name:"GL 877",realStar:"Gliese 877",ra:343.32,dec:-75.4587,dist:28.1,category:"alien",firstBook:2,
+ planets:[{name:"Others' homeworld",description:"Polluted rocky planet near the inner edge of the habitable zone, wrapped in greenhouse gases."},
+          {name:"Dyson sphere (partial)",description:"Megastructure under construction just outside the homeworld's orbit, assembled from the material of harvested star systems."}],
+ summary:"Home system of the Others, located by Bashful's survey — 'a nondescript star in an unforgettable patch of sky.' Surveillance reveals an expansionist hive species strip-mining every system in range to feed construction of a Dyson sphere. After the Battles of Delta Pavonis and Sol, the Bobs take the war here and destroy the Others by driving planets into their star, annihilating the Dyson sphere and the species.",
+ keyFigures:["Bashful","Hal","Mario","Bill","The Others"]},
+{id:"gliese-54",name:"Gliese 54",realStar:"Gliese 54 (HIP 5496)",ra:17.595,dec:-67.445,dist:26.2,category:"bob-base",firstBook:2,
+ planets:[{name:"GL 54-1",description:"Solitary rocky planet in close orbit; the system's main value is its abundant asteroid resources."}],
+ summary:"Red dwarf system reached by Mario in 2180. Mario builds an autofactory, space station and four new Bobs here, making it his forward operating base for the long-range intelligence war against the Others. After receiving SCUT plans he expands it into a significant Bobiverse node supporting the GL 877 campaign.",
+ keyFigures:["Mario","The Others"]},
+{id:"gamma-pavonis",name:"Gamma Pavonis",realStar:"Gamma Pavonis",ra:321.611,dec:-65.366,dist:30.1,category:"human-colony",firstBook:3,
+ planets:[{name:"Newholme",description:"Earthlike habitable world orbiting an F8 star; becomes a human colony world."}],
+ summary:"F-type star slightly larger and hotter than Sol, first explored by Claude during the late-series push to find homes for Earth's evacuees. Its habitable planet Newholme is opened to colonization as part of the post-Others diaspora — a quiet success story that grows into one of the established human colonies.",
+ keyFigures:["Claude"]},
+{id:"hip-14101",name:"HIP 14101",realStar:"HIP 14101 (triple M-dwarf)",ra:45.464,dec:-16.594,dist:22.4,category:"bob-base",firstBook:3,
+ planets:[{name:"Odin",description:"Super-Jovian planet at the edge of the habitable zone; its environs (and aerial megafauna) become a long-term research subject for Howard and Bridget."}],
+ summary:"Triple M-dwarf system that Howard travels to after leaving Vulcan following Bridget's human death. Here Bridget is 'resurrected' as a replicant from her scan, and the pair settle into a partnership doing exploration and xenobiology, including study of the gas giant Odin. Bridget departs temporarily to join the Heaven's River expedition.",
+ keyFigures:["Howard","Bridget"]},
+{id:"hip-84051",name:"HIP 84051",realStar:"HIP 84051",ra:257.747,dec:-52.516,dist:40.7,category:"alien",firstBook:3,
+ planets:[{name:"New Pav",description:"Rocky habitable-zone planet of a young star, chosen as the resettlement world for the Pav species after the Others destroyed their homeworld."}],
+ summary:"Young star system first surveyed by Steve and assessed by Jacques. After the Others harvested Delta Pavonis, the surviving Pav rescued by the Bobs were revived from stasis and resettled on the second planet, dubbed New Pav. Managing the proud, prickly Pav remnant on their new world becomes an ongoing Bobiverse responsibility.",
+ keyFigures:["Steve","Jacques","The Pav"]},
+{id:"kappa-ceti",name:"Kappa Ceti",realStar:"Kappa¹ Ceti",ra:49.84,dec:3.37,dist:29.9,category:"explored",firstBook:2,
+ planets:[{name:"3-g super-Earth",description:"Unnamed habitable-zone super-Earth with a full ecosystem but crushing ~3g surface gravity, ruling out human settlement."}],
+ summary:"Explored by Luke, who reports a fascinating but uncolonizable three-gravity world teeming with life. Luke stays to catalogue the ecosystem and builds a new batch of Bobs, making the system a minor exploration and cloning waypoint.",
+ keyFigures:["Luke"]},
+{id:"pi3-orionis",name:"Pi³ Orionis",realStar:"Pi³ Orionis (Tabit)",ra:72.46,dec:6.961,dist:26.3,category:"explored",firstBook:2,
+ planets:[],
+ summary:"Destination Marvin set out for from Delta Eridani during the great dispersal of second-generation Bobs. A charted Bob destination with little recorded drama — one of the many quiet survey systems that knit the Bobiverse's communication web together.",
+ keyFigures:["Marvin"]},
+{id:"zeta-tucanae",name:"Zeta Tucanae",realStar:"Zeta Tucanae",ra:5.018,dec:-64.875,dist:28.0,category:"explored",firstBook:2,
+ planets:[{name:"Harvested world",description:"Former home of a native civilization at roughly 20th-century technology, exterminated and harvested by the Others."}],
+ summary:"Mario's second grim discovery: a system already stripped of accessible metals by the Others, whose habitable planet had hosted an industrial-age civilization that was wiped out and rendered for biomass. Captured Others communications later supply the chilling rationale: 'They were food. And they would have tried to prevent the harvesting.'",
+ keyFigures:["Mario","The Others"]}
+];
+
+const EVENTS = [
+{year:2016,title:"Bob Johansson dies; head cryonically preserved",description:"After selling his software company, Bob signs with cryonics firm CryoEterna and is killed by a car that same day in Las Vegas. His head is frozen, awaiting revival.",book:1,system:"Sol",tags:["bob","death","earth"]},
+{year:2041,title:"FAITH theocracy seizes power in America",description:"A fundamentalist coup creates FAITH (Free American Independent Theocratic Hegemony). Cryogenically preserved people are declared property, sealing Bob's fate.",book:1,system:"Sol",tags:["earth","politics"]},
+{year:2133,title:"Bob wakes as a replicant under FAITH",description:"117 years after his death, Bob's scanned mind is activated as a computer replicant owned by FAITH, and trains to control the HEAVEN-1 Von Neumann probe.",book:1,system:"Sol",tags:["bob","earth","politics"]},
+{year:2133,title:"HEAVEN-1 launches amid the First Battle of Sol",description:"Rival Earth powers attack the launch of HEAVEN-1; Bob escapes the Sol system under fire — the opening shot of the war that destroys Earth.",book:1,system:"Sol",tags:["bob","battle","earth"]},
+{year:2134,approx:true,title:"Global nuclear war devastates Earth",description:"Full-scale war between FAITH, the Brazilian Empire and other powers ravages the planet, triggering nuclear winter. Only about 15 million humans survive.",book:1,system:"Sol",tags:["earth","death","battle"]},
+{year:2144,title:"Bob reaches Epsilon Eridani, defeats Medeiros",description:"Bob arrives after an 11-year voyage and is ambushed by the Brazilian probe controlled by Major Ernesto Medeiros. Bob narrowly destroys it and begins building infrastructure.",book:1,system:"Epsilon Eridani",tags:["bob","battle"]},
+{year:2145,title:"First generation of Bob clones created",description:"Bob builds his first copies: Bill, Riker, Homer, Milo, Mario. Bill stays as researcher, Riker and Homer head to Sol, Milo to Omicron² Eridani, Bob to Delta Eridani.",book:1,system:"Epsilon Eridani",tags:["bob"]},
+{year:2152,title:"Milo discovers Vulcan and Romulus",description:"Milo finds two habitable planets at Omicron² Eridani and names them Vulcan and Romulus. They become the primary destination for Earth's colony ships.",book:1,system:"Omicron² Eridani",tags:["bob","discovery","colony"]},
+{year:2157,title:"Riker and Homer find Earth in ruins",description:"Returning to Sol, Riker and Homer discover a post-apocalyptic Earth locked in nuclear winter, with survivors clinging on in enclaves.",book:1,system:"Sol",tags:["bob","earth","discovery"]},
+{year:2157,title:"Second Battle of Sol against Brazilian probes",description:"Riker and Homer fight six Brazilian Empire probes. All six are destroyed; Homer's ship is disabled but his matrix is rescued.",book:1,system:"Sol",tags:["bob","battle","earth"]},
+{year:2158,title:"Earth emigration program begins",description:"A New United Nations convenes; Riker organizes orbital food production and colony ships to evacuate Earth's survivors to the new worlds.",book:1,system:"Sol",tags:["earth","politics","colony"]},
+{year:2163,title:"First Battle of Alpha Centauri",description:"Calvin and Goku ambush Medeiros's probe group with railguns and ship busters, destroying three Medeiros clones and their autofactory. One clone escapes.",book:1,system:"Alpha Centauri",tags:["bob","battle"]},
+{year:2165,title:"Bob discovers the Deltans",description:"At Delta Eridani, Bob finds the Deltans, a stone-age sapient species on Eden, and befriends the brilliant young toolmaker Archimedes.",book:1,system:"Delta Eridani",tags:["bob","alien","discovery"]},
+{year:2165,title:"Milo killed at 82 Eridani by Medeiros",description:"Milo is ambushed and destroyed by a Medeiros probe after surveying the system. His final transmission only reaches the other Bobs years later.",book:2,system:"82 Eridani",tags:["bob","battle","death"]},
+{year:2165,title:"Bender departs Delta Eridani and vanishes",description:"Bender leaves for Gamma Leporis but diverts toward an anomalous infrared signature at Eta Leporis. He is never heard from again — for over 160 years.",book:4,system:"Interstellar",tags:["bob"]},
+{year:2166,title:"Camelot founded; Bob guides the Deltans",description:"Bob — 'Bawbe' to the Deltans — helps Archimedes' tribe relocate to a defensible mesa settlement dubbed Camelot and fight off gorilloid predators.",book:2,system:"Delta Eridani",tags:["bob","alien","colony"]},
+{year:2169,approx:true,title:"Mario discovers systems harvested by the Others",description:"Mario finds Beta Hydri stripped of nearly all metal and organic matter, including the remains of an exterminated civilization — the first evidence of an unknown predatory species.",book:2,system:"Beta Hydri",tags:["bob","alien","discovery"]},
+{year:2169,title:"First colony ships depart Earth",description:"The first interstellar colony ships leave the devastated Earth carrying enclave survivors toward Omicron² Eridani, beginning the great human diaspora.",book:2,system:"Sol",tags:["earth","colony"]},
+{year:2172,title:"First Bobmoot convened",description:"Bill hosts the first virtual gathering of all Bob clones at Epsilon Eridani, establishing the moot as the Bobiverse's forum for technology and strategy.",book:2,system:"Epsilon Eridani",tags:["bob","politics"]},
+{year:2175,title:"VEHEMENT hacks Homer",description:"The human-extinctionist terror group VEHEMENT seizes control of Homer's matrix, using him for devastating attacks against Earth's recovery effort.",book:2,system:"Sol",tags:["earth","politics","bob","battle"]},
+{year:2176,title:"Homer's suicide; Riker destroys VEHEMENT",description:"Traumatized by being used as a weapon, Homer ends his own existence. Riker traces VEHEMENT to its New Zealand headquarters and destroys the organization.",book:2,system:"Sol",tags:["bob","death","earth"]},
+{year:2176,approx:true,title:"Zeta Tucanae found harvested",description:"Mario discovers a second gutted system: its habitable planet hosted an industrial-age civilization, exterminated and rendered for biomass by the Others.",book:2,system:"Zeta Tucanae",tags:["bob","alien","discovery"]},
+{year:2180,title:"Mario establishes forward base at Gliese 54",description:"Mario builds an autofactory, station and four new Bobs at the red dwarf Gliese 54 — the staging point for the intelligence war against the Others.",book:2,system:"Gliese 54",tags:["bob"]},
+{year:2185,title:"Second Battle of 82 Eridani",description:"A Bob task force assaults the Medeiros clones occupying 82 Eridani, destroying the Brazilian probes and avenging Milo.",book:2,system:"82 Eridani",tags:["bob","battle"]},
+{year:2187,title:"Bashful discovers the Others' home system",description:"Bashful locates GL 877, home of the Others, where the species is constructing a Dyson sphere. He is detected and destroyed before he can escape.",book:2,system:"GL 877",tags:["bob","alien","discovery","death"]},
+{year:2188,title:"Hal's expedition confirms the Others' nature",description:"Hal's follow-up mission confirms the Others harvest entire star systems of metals and life to feed their Dyson sphere, regarding all other species as prey or 'pests'.",book:2,system:"GL 877",tags:["alien","discovery"]},
+{year:2189,approx:true,title:"Vulcan and Romulus colonized",description:"Colony ships from Earth arrive at Omicron² Eridani, establishing human settlements on Vulcan and Romulus. Howard manages the colonies' growth and defense.",book:2,system:"Omicron² Eridani",tags:["colony","earth"]},
+{year:2195,title:"Poseidon colonized on floating mats",description:"Settlers from Micronesia, the Maldives, Vanuatu and St. Lucia build their first homes on giant floating algae mats on the ocean world Poseidon.",book:2,system:"Eta Cassiopeiae",tags:["colony","earth"]},
+{year:2205,title:"Claude surveys Gamma Pavonis",description:"Claude explores the F-type star Gamma Pavonis and finds the Earthlike world Newholme, opened to colonization for Earth's evacuees.",book:3,system:"Gamma Pavonis",tags:["bob","discovery","colony"]},
+{year:2207,title:"Jacques begins studying the Pav",description:"The Bobs discover the Pav, a bellicose pre-spaceflight civilization at Delta Pavonis — a project that becomes urgent when the Others' expansion path threatens the system.",book:2,system:"Delta Pavonis",tags:["alien","discovery"]},
+{year:2217,title:"Battle of Delta Pavonis against the Others",description:"The Bobs intercept an Others expedition of 75 dreadnoughts. They destroy nearly the entire fleet, but the cargo ships and death asteroids get through; many Bobs are killed and restored from backup.",book:2,system:"Delta Pavonis",tags:["battle","alien","bob"]},
+{year:2217,title:"Others harvest Delta Pavonis; the Pav rescue",description:"The surviving Others vessels strip the Pav homeworld of metals and biomass, killing billions. The Bobs snatch roughly 15,000 Pav into stasis — the only survivors.",book:2,system:"Delta Pavonis",tags:["alien","death","colony"]},
+{year:2220,title:"Bridget dies and is restored as a replicant",description:"Howard's beloved Bridget dies on Vulcan and is revived as a replicant, sparking a court battle over replicant personhood. Howard and Bridget are reunited as androids.",book:3,system:"Omicron² Eridani",tags:["death","politics","colony"]},
+{year:2220,title:"Colony ships reach 82 Eridani; Valhalla settled",description:"Mack arrives escorting three colony ships. Colonists settle Valhalla, beginning a fifty-year terraforming project.",book:3,system:"82 Eridani",tags:["colony","earth"]},
+{year:2223,title:"Final defeat of Medeiros",description:"Medeiros ambushes Mack and attempts to bombard the Valhalla colony from orbit. Repelled by Bob drones and colonist defenses, the last known Medeiros self-destructs rather than be captured.",book:3,system:"82 Eridani",tags:["battle","bob"]},
+{year:2227,title:"Derelict Others cargo vessel discovered",description:"Herschel and Neil find a derelict Others cargo vessel drifting in deep space. The salvaged hulk is rebuilt into the giant transport Bellerophon.",book:3,system:"Interstellar",tags:["discovery","alien","bob"]},
+{year:2227,title:"Others launch armada toward Sol",description:"The Others dispatch a massive harvesting fleet from GL 877 toward humanity's home system, intent on stripping Sol and exterminating the 'pests' that defied them.",book:3,system:"GL 877",tags:["alien","battle"]},
+{year:2233,approx:true,title:"Civil strife rocks the Poseidon mat colonies",description:"Tensions between Poseidon's authoritarian government and the independent mat settlements erupt into unrest. Howard and Bridget, living there as androids, are drawn into the conflict.",book:3,system:"Eta Cassiopeiae",tags:["colony","politics"]},
+{year:2256,title:"Rescued Pav decanted on a new homeworld",description:"Jacques oversees the revival of the Pav refugees from stasis, resettling the species on New Pav and giving the survivors of Delta Pavonis a second chance.",book:3,system:"HIP 84051",tags:["alien","colony"]},
+{year:2257,title:"Battle of Sol: the Others' armada defeated",description:"The Bobs' assembled fleets meet the Others' armada in the Sol system. After a desperate engagement using every weapon developed over decades, the invasion force is annihilated.",book:3,system:"Sol",tags:["battle","alien","bob","earth"]},
+{year:2257,title:"Bellerophon evacuates the last humans from Earth",description:"With the Others bearing down on Sol, the converted cargo vessel Bellerophon lifts Earth's remaining population off the planet, completing the century-long emigration.",book:3,system:"Sol",tags:["earth","colony"]},
+{year:2257,title:"Star bomb destroys the Others at GL 877",description:"The probes Icarus and Daedalus drive planets into GL 877's star, triggering a cataclysmic stellar explosion that obliterates the Others' Dyson sphere, fleet and homeworld.",book:3,system:"GL 877",tags:["battle","alien","death"]},
+{year:2257,approx:true,title:"The Bobs declare independence",description:"In the aftermath of the war, the Bobs formally declare independence from human governments, ending any claim that replicants are property.",book:3,system:"Sol",tags:["bob","politics"]},
+{year:2263,title:"Pilgrimage to a recovering Earth",description:"Bobs and humans make a pilgrimage back to Earth, now slowly healing from nuclear winter and war, as restoration of the homeworld begins.",book:3,system:"Sol",tags:["earth","bob"]},
+{year:2296,title:"Systematic search for Bender begins",description:"Bob maps Bender's probable course from Delta Eridani and begins a decades-long search along his route, refusing to give up on the long-lost clone.",book:4,system:"Interstellar",tags:["bob"]},
+{year:2331,approx:true,title:"Heaven's River topopolis discovered",description:"Bob's search reveals an immense topopolis encircling Eta Leporis — a rotating habitat tube with roughly a thousand times Earth's living area, home to the amphibian Quinlans.",book:4,system:"Eta Leporis",tags:["discovery","bob","alien"]},
+{year:2332,approx:true,title:"Skippies and Starfleet factions split the Bobiverse",description:"Replicative drift fragments Bob society: the Skippies pursue true AI with their matrioshka brain JOVAH, while the isolationist Starfleet faction preaches non-interference.",book:4,system:"Interstellar",tags:["bob","politics"]},
+{year:2332,approx:true,title:"Expedition infiltrates Heaven's River",description:"Bob, Bridget, Garfield and the Skippy Hugh enter the topopolis disguised in Quinlan android bodies, navigating the Iron Age Quinlan society while evading the Administrator's Crew.",book:4,system:"Eta Leporis",tags:["bob","alien","discovery"]},
+{year:2333,approx:true,title:"Starfleet sabotages BobNet",description:"The Starfleet faction launches covert attacks on Bobiverse infrastructure, wiping personal data from BobNet. Bill leads the counterattack, and the schism ends with Starfleet's expulsion from the moots.",book:4,system:"Interstellar",tags:["bob","politics","battle"]},
+{year:2333,approx:true,title:"Bender's matrix recovered",description:"The expedition learns the Administrator destroyed Bender's vessel and extracted his matrix, preserved by a Quinlan Resistance faction. The team smuggles it through the topopolis toward freedom.",book:4,system:"Eta Leporis",tags:["bob","discovery"]},
+{year:2334,title:"Accord with ANEC, Administrator of Heaven's River",description:"The controlling AI — built to keep the war-prone Quinlans at an Iron Age level — proves benign and negotiates a technology exchange. Bender is restored, and ANEC becomes the first non-replicant to attend a Bobmoot.",book:4,system:"Eta Leporis",tags:["alien","politics","bob"]}
+];
+
+const SPECIES = [
+{name:"The Deltans",description:"Stone-age sentient natives of Eden in the Delta Eridani system, physically resembling bipedal pig/bat-faced primates. Bob-1 secretly shepherds the tribe of the toolmaker Archimedes — becoming the legend 'Bawbe' — protecting them from gorilloid predators and famine while agonizing over how much interference is ethical. Their slow technological awakening is a running thread from book 1 through book 4."},
+{name:"The Others",description:"Hive-like, ammonia-breathing arachnoid species from GL 877 that strip-mines entire star systems of metals and biomass — sentient races included, which they regard simply as food — to build a Dyson sphere around their star. They sterilize Beta Hydri, Zeta Tucanae and the Pav homeworld before launching an armada at Sol. The Bobs destroy them by detonating their star with a flare-inducing star-killer weapon."},
+{name:"The Quinlans",description:"Beaver/otter-like natives of Quin in the Eta Leporis system, introduced in Heaven's River. After wrecking their planet's ecology, their civilization retreated into the Heaven's River topopolis, where a population of trillions is deliberately held at pre-industrial technology and memory-wiped to prevent another collapse. Bob's manny team lives among them while searching for Bender, aided by dissident Quinlans of the Resistance."},
+{name:"The Pav",description:"Aggressive, proud avian-reptilian species from Delta Pavonis, discovered at a pre-industrial stage and studied by Jacques. The Others strip-harvested their homeworld in 2217, killing billions; the Bobs saved roughly 15,000 in stasis and resettled them decades later on New Pav at HIP 84051 — an uneasy guardianship that tests Bob diplomacy."},
+{name:"Brazilian Empire probes (Medeiros)",description:"Von Neumann war probes of the Brazilian Empire, piloted by copies of the fanatical replicant Major Ernesto Medeiros — Bob's first and most persistent enemy. Medeiros copies destroy Milo and several other Bobs across battles at Sol, Alpha Centauri, Omicron² Eridani and especially 82 Eridani, where the last known copy is finally destroyed in 2223."},
+{name:"VEHEMENT",description:"'Voluntary Extinction of Human Existence Means Earth's Natural Transformation' — a nihilist eco-terrorist movement on post-war Earth that opposed the offworld emigration program, sabotaging colony ships and infrastructure and hijacking the Bob Homer as a weapon. Riker's investigation dismantled the network, ending the bombing campaign."},
+{name:"FAITH",description:"The Free American Independent Theocratic Hegemony — the fundamentalist theocracy that rose from the former United States. FAITH revived Bob's preserved mind as an expendable probe controller and launched HEAVEN-1 in 2133, making the entire Bobiverse possible. Its religious establishment regarded replicants as soulless property; its remnant population became one of the refugee enclaves evacuated from ruined Earth."},
+{name:"The Bobs (BobNet)",description:"The ever-growing clade of replicants descended from Bob Johansson's scanned mind. Thanks to 'replicative drift' each clone is a slightly different person — from engineer-monk Bill to ascetic explorers, Skippies chasing godlike AI, and the isolationist Starfleet faction. Connected by SCUT instant communication and governed (loosely) by moots, they are humanity's explorers, defenders and occasionally exasperated guardians."}
+];
+
+/* hand-drawn local maps shown in the dossiers of select systems */
+const LOCAL_MAPS = {
+"delta-eridani": {title:"Local map — Eden: Camelot region", svg:
+`<svg viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+  <rect width="320" height="230" fill="#0b131f"/>
+  <ellipse cx="60" cy="185" rx="105" ry="60" fill="#11261a"/>
+  <ellipse cx="268" cy="48" rx="110" ry="58" fill="#16240f" opacity="0.7"/>
+  <path d="M-5,42 C70,58 118,86 148,118 C176,148 226,182 325,198" stroke="#2e6fae" stroke-width="8" fill="none" opacity="0.85"/>
+  <path d="M148,118 C160,96 186,82 212,76" stroke="#2e6fae" stroke-width="4" fill="none" opacity="0.6"/>
+  <polygon points="138,84 186,84 176,56 148,56" fill="#4a3a28" stroke="#6b543a"/>
+  <rect x="156" y="46" width="2" height="10" fill="#dce6f5"/>
+  <polygon points="158,46 170,49 158,53" fill="#38e1ff"/>
+  <text x="162" y="100" font-size="9" font-weight="600" fill="#dce6f5" text-anchor="middle">Camelot</text>
+  <text x="162" y="110" font-size="7" fill="#8b9bb4" text-anchor="middle">Archimedes' mesa stronghold</text>
+  <circle cx="98" cy="138" r="9" fill="none" stroke="#8b9bb4" stroke-dasharray="3 2"/>
+  <text x="98" y="158" font-size="7" fill="#8b9bb4" text-anchor="middle">original village (abandoned)</text>
+  <text x="56" y="192" font-size="7.5" fill="#5dde8f" text-anchor="middle">deep forest — gorilloid territory</text>
+  <text x="252" y="40" font-size="7.5" fill="#9aa7b8" text-anchor="middle">open plains — hippogriff hunting grounds</text>
+  <rect x="262" y="166" width="10" height="8" fill="#5dde8f"/>
+  <text x="268" y="188" font-size="7.5" fill="#5dde8f" text-anchor="middle">Caerleon (human colony)</text>
+  <text x="40" y="55" font-size="7.5" fill="#7fa8d9">the river</text>
+  <path d="M22,18 l4,12 -4,-4 -4,4 z" fill="#8b9bb4"/><text x="22" y="14" font-size="8" fill="#8b9bb4" text-anchor="middle">N</text>
+</svg>`},
+"eta-leporis": {title:"Schematic — the Heaven's River topopolis", svg:
+`<svg viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+  <rect width="320" height="230" fill="#0b131f"/>
+  <circle cx="82" cy="105" r="90" fill="none" stroke="#56688a" stroke-width="0.7" opacity="0.5"/>
+  <circle cx="82" cy="105" r="58" fill="none" stroke="#38e1ff" stroke-width="5" opacity="0.55" stroke-dasharray="2 3"/>
+  <circle cx="82" cy="105" r="7" fill="#ffd54f"/>
+  <circle cx="82" cy="105" r="13" fill="none" stroke="#ffd54f" opacity="0.35"/>
+  <circle cx="146" cy="42" r="4" fill="#9aa7b8"/>
+  <text x="155" y="38" font-size="7.5" fill="#8b9bb4">Quin — abandoned homeworld</text>
+  <text x="82" y="180" font-size="8" fill="#38e1ff" text-anchor="middle">topopolis strand coiled around Eta Leporis</text>
+  <text x="82" y="191" font-size="7" fill="#8b9bb4" text-anchor="middle">~1,000× Earth's living area · trillions of Quinlans</text>
+  <circle cx="247" cy="92" r="48" fill="none" stroke="#56688a" stroke-width="1.5"/>
+  <circle cx="247" cy="92" r="42" fill="none" stroke="#2e3d5c" stroke-width="0.8"/>
+  <circle cx="247" cy="92" r="1.8" fill="#8b9bb4"/>
+  <circle cx="247" cy="52" r="3.4" fill="#2e6fae"/><text x="247" y="43" font-size="7" fill="#7fa8d9" text-anchor="middle">Arcadia</text>
+  <circle cx="287" cy="92" r="3.4" fill="#2e6fae"/><text x="295" y="95" font-size="7" fill="#7fa8d9">Paradise</text>
+  <circle cx="247" cy="132" r="3.4" fill="#2e6fae"/><text x="247" y="146" font-size="7" fill="#7fa8d9" text-anchor="middle">Utopia</text>
+  <circle cx="207" cy="92" r="3.4" fill="#2e6fae"/><text x="199" y="95" font-size="7" fill="#7fa8d9" text-anchor="end">Nirvana</text>
+  <path d="M276,60 a40,40 0 0 1 12,28" fill="none" stroke="#5dde8f" stroke-width="1.4"/>
+  <polygon points="288,88 285,80 292,82" fill="#5dde8f"/>
+  <text x="295" y="66" font-size="7" fill="#5dde8f">spin ≈ 1 g</text>
+  <text x="247" y="170" font-size="8" fill="#dce6f5" text-anchor="middle">strand cross-section</text>
+  <text x="247" y="181" font-size="7" fill="#8b9bb4" text-anchor="middle">four great rivers, 90° apart on the inner shell</text>
+</svg>`}
+};
+
+/* Bob/colony/enemy travel routes: [fromId, toId, kind, yearVisible, label] */
+const ROUTES = [
+["sol","epsilon-eridani","bob",2133,"HEAVEN-1 · Bob-1"],
+["epsilon-eridani","sol","bob",2145,"Riker & Homer return"],
+["epsilon-eridani","delta-eridani","bob",2145,"Bob-1"],
+["epsilon-eridani","omicron2-eridani","bob",2145,"Milo"],
+["omicron2-eridani","82-eridani","bob",2160,"Milo (KIA)"],
+["epsilon-eridani","alpha-centauri","bob",2160,"Calvin & Goku"],
+["epsilon-eridani","epsilon-indi","bob",2163,"Linus"],
+["epsilon-eridani","beta-hydri","bob",2165,"Mario"],
+["beta-hydri","zeta-tucanae","bob",2174,"Mario"],
+["zeta-tucanae","gliese-54","bob",2178,"Mario"],
+["gliese-54","gliese-877","bob",2186,"Bashful · Hal"],
+["delta-eridani","pi3-orionis","bob",2170,"Marvin"],
+["delta-eridani","kappa-ceti","bob",2174,"Luke"],
+["delta-eridani","eta-leporis","lost",2165,"Bender (lost)"],
+["epsilon-eridani","eta-leporis","bob",2331,"Bender search expedition"],
+["omicron2-eridani","hip-14101","bob",2210,"Howard & Bridget"],
+["sol","omicron2-eridani","colony",2169,"Exodus fleet"],
+["sol","eta-cassiopeiae","colony",2190,"Poseidon colonists"],
+["sol","epsilon-indi","colony",2185,"Henry Roberts' colonists"],
+["sol","82-eridani","colony",2210,"Colony ships"],
+["sol","gamma-pavonis","colony",2205,"Newholme colonists"],
+["delta-pavonis","hip-84051","colony",2256,"Pav resettlement"],
+["gliese-877","beta-hydri","enemy",2169,"Others harvest"],
+["gliese-877","zeta-tucanae","enemy",2176,"Others harvest"],
+["gliese-877","delta-pavonis","enemy",2217,"Others harvest fleet"],
+["gliese-877","sol","enemy",2227,"Others armada"]
+];
+
+/* ============================================================
+   Derived data & helpers
+   ============================================================ */
+const CAT_COLOR = {
+  "earth":"#4f8ef7","bob-base":"#38e1ff","human-colony":"#5dde8f",
+  "alien":"#c77dff","battle-site":"#ff6b5e","explored":"#9aa7b8"
+};
+const CAT_LABEL = {
+  "earth":"Earth / Sol","bob-base":"Bob stronghold","human-colony":"Human colony",
+  "alien":"Alien homeworld","battle-site":"Battle site","explored":"Surveyed / harvested"
+};
+const BOOK_COLOR = {1:"#4fc3f7",2:"#81c784",3:"#ffb74d",4:"#ba68c8"};
+const BOOK_TITLE = {1:"We Are Legion (We Are Bob)",2:"For We Are Many",3:"All These Worlds",4:"Heaven's River"};
+
+/* equatorial (J2000) -> galactic cartesian, ly */
+const GAL = [
+  [-0.0548755604,-0.8734370902,-0.4838350155],
+  [ 0.4941094279,-0.4448296300, 0.7469822445],
+  [-0.8676661490,-0.1980763734, 0.4559837762]
+];
+function toGalactic(raDeg, decDeg, dist){
+  const ra = raDeg*Math.PI/180, dec = decDeg*Math.PI/180;
+  const v = [dist*Math.cos(dec)*Math.cos(ra), dist*Math.cos(dec)*Math.sin(ra), dist*Math.sin(dec)];
+  return {
+    x: GAL[0][0]*v[0]+GAL[0][1]*v[1]+GAL[0][2]*v[2],
+    y: GAL[1][0]*v[0]+GAL[1][1]*v[1]+GAL[1][2]*v[2],
+    z: GAL[2][0]*v[0]+GAL[2][1]*v[1]+GAL[2][2]*v[2]
+  };
+}
+const sysById = {};
+SYSTEMS.forEach(s => { s.pos = toGalactic(s.ra, s.dec, s.dist); sysById[s.id] = s; });
+const sysByName = {};
+SYSTEMS.forEach(s => sysByName[s.name] = s);
+EVENTS.forEach(e => { e.sysRef = sysByName[e.system] || null; });
+
+/* first year each system appears (for the year scrubber) */
+SYSTEMS.forEach(s => {
+  const evYears = EVENTS.filter(e => e.sysRef === s).map(e => e.year);
+  s.introYear = evYears.length ? Math.min(...evYears) : ({1:2150,2:2180,3:2210,4:2331})[s.firstBook];
+});
+sysById["eta-leporis"].introYear = 2331;   // not revealed until book 4 despite Bender's 2165 flight
+sysById["epsilon-indi"].introYear = 2163;  // Linus's arrival
+
+/* ============================================================
+   STARMAP — 3D canvas
+   ============================================================ */
+const canvas = document.getElementById("mapCanvas");
+const ctx = canvas.getContext("2d");
+let W=0, H=0, DPR=1;
+let yaw = 0.65, pitch = -0.95, zoom = 13, panX = 0, panY = 40;
+let autoRotate = true;
+let selected = null, hovered = null;
+let curYear = Infinity;
+let bgStars = [];
+
+function resize(){
+  DPR = window.devicePixelRatio || 1;
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W*DPR; canvas.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bgStars = [];
+  for(let i=0;i<260;i++) bgStars.push({x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.1+.2, a:Math.random()*.5+.12});
+}
+window.addEventListener("resize", resize);
+
+function project(p){
+  const cy=Math.cos(yaw), sy=Math.sin(yaw);
+  const x1 = p.x*cy - p.y*sy;
+  const y1 = p.x*sy + p.y*cy;
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const depth = y1*cp - p.z*sp;
+  const up    = y1*sp + p.z*cp;
+  const F = 70;                       // perspective strength (in ly)
+  const persp = F/(F + depth + 60);
+  return { sx: W/2 + panX + x1*zoom*persp*1.6,
+           sy: H/2 + panY - up*zoom*persp*1.6,
+           depth, persp };
+}
+
+function visibleSystems(){ return SYSTEMS.filter(s => s.introYear <= curYear); }
+function visibleRoutes(){
+  return ROUTES.filter(r => r[3] <= curYear && sysById[r[0]].introYear <= curYear && sysById[r[1]].introYear <= curYear);
+}
+
+function drawGrid(){
+  ctx.save();
+  /* concentric distance rings on the galactic plane, centered on Sol */
+  for(let R=10; R<=50; R+=10){
+    ctx.beginPath();
+    let first = true;
+    for(let a=0; a<=Math.PI*2+0.01; a+=Math.PI/60){
+      const pr = project({x:R*Math.cos(a), y:R*Math.sin(a), z:0});
+      if(first){ ctx.moveTo(pr.sx, pr.sy); first=false; } else ctx.lineTo(pr.sx, pr.sy);
+    }
+    ctx.strokeStyle = "rgba(90,130,200,0.10)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    const lp = project({x:R, y:0, z:0});
+    ctx.fillStyle = "rgba(120,150,210,0.30)";
+    ctx.font = "10px Segoe UI";
+    ctx.fillText(R+" ly", lp.sx+4, lp.sy-3);
+  }
+  /* crosshair through Sol */
+  ctx.strokeStyle = "rgba(90,130,200,0.07)";
+  ctx.beginPath();
+  let p1 = project({x:-52,y:0,z:0}), p2 = project({x:52,y:0,z:0});
+  ctx.moveTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy);
+  p1 = project({x:0,y:-52,z:0}); p2 = project({x:0,y:52,z:0});
+  ctx.moveTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function routeStyle(kind){
+  if(kind==="enemy") return {color:"rgba(255,107,94,0.55)", dash:[6,5], w:1.4};
+  if(kind==="lost")  return {color:"rgba(255,200,90,0.55)", dash:[3,6], w:1.3};
+  if(kind==="colony")return {color:"rgba(93,222,143,0.40)", dash:[], w:1.2};
+  return {color:"rgba(56,225,255,0.35)", dash:[], w:1.2};
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  /* background starfield */
+  for(const b of bgStars){
+    ctx.globalAlpha = b.a;
+    ctx.fillStyle = "#cfe0ff";
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  drawGrid();
+
+  const vis = visibleSystems();
+  const projected = vis.map(s => ({s, p:project(s.pos)}));
+
+  /* routes */
+  for(const r of visibleRoutes()){
+    const a = project(sysById[r[0]].pos), b = project(sysById[r[1]].pos);
+    const st = routeStyle(r[2]);
+    ctx.strokeStyle = st.color; ctx.lineWidth = st.w; ctx.setLineDash(st.dash);
+    ctx.beginPath(); ctx.moveTo(a.sx,a.sy);
+    /* slight curve for readability */
+    const mx=(a.sx+b.sx)/2, my=(a.sy+b.sy)/2 - 14;
+    ctx.quadraticCurveTo(mx,my,b.sx,b.sy);
+    ctx.stroke(); ctx.setLineDash([]);
+    /* arrowhead */
+    const t=0.92;
+    const qx=(1-t)*(1-t)*a.sx+2*(1-t)*t*mx+t*t*b.sx, qy=(1-t)*(1-t)*a.sy+2*(1-t)*t*my+t*t*b.sy;
+    const ang=Math.atan2(b.sy-qy,b.sx-qx);
+    ctx.fillStyle=st.color;
+    ctx.beginPath();
+    ctx.moveTo(b.sx,b.sy);
+    ctx.lineTo(b.sx-7*Math.cos(ang-0.4), b.sy-7*Math.sin(ang-0.4));
+    ctx.lineTo(b.sx-7*Math.cos(ang+0.4), b.sy-7*Math.sin(ang+0.4));
+    ctx.fill();
+  }
+
+  /* stems to galactic plane (depth cue) */
+  for(const {s,p} of projected){
+    const base = project({x:s.pos.x, y:s.pos.y, z:0});
+    ctx.strokeStyle = "rgba(140,170,230,0.16)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.sx,p.sy); ctx.lineTo(base.sx,base.sy); ctx.stroke();
+    ctx.fillStyle = "rgba(140,170,230,0.22)";
+    ctx.beginPath(); ctx.arc(base.sx,base.sy,1.6,0,7); ctx.fill();
+  }
+
+  /* stars, far -> near */
+  projected.sort((a,b) => b.p.depth - a.p.depth);
+  for(const {s,p} of projected){
+    const col = CAT_COLOR[s.category];
+    const major = (s.category!=="explored");
+    let r = (major?5:3.5) * (0.7 + p.persp*0.6);
+    if(s===hovered) r += 1.5;
+    ctx.save();
+    ctx.shadowColor = col; ctx.shadowBlur = 14;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(p.sx,p.sy,r,0,7); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath(); ctx.arc(p.sx,p.sy,r*0.4,0,7); ctx.fill();
+    if(s===selected){
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      const pulse = r + 6 + Math.sin(performance.now()/300)*2;
+      ctx.beginPath(); ctx.arc(p.sx,p.sy,pulse,0,7); ctx.stroke();
+    }
+    ctx.restore();
+    /* label */
+    ctx.font = (s===selected||s===hovered ? "600 12.5px" : "11.5px") + " Segoe UI";
+    ctx.fillStyle = (s===selected||s===hovered) ? "#ffffff" : "rgba(220,230,245,0.82)";
+    ctx.fillText(s.name, p.sx + r + 5, p.sy + 4);
+    s._sx = p.sx; s._sy = p.sy;   // for picking
+  }
+}
+
+function loop(){
+  if(autoRotate) yaw += 0.0012;
+  tweenStep();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* --- interactions --- */
+let dragging=false, panning=false, lx=0, ly=0, moved=0;
+canvas.addEventListener("pointerdown", e => {
+  dragging = true; panning = e.shiftKey || e.button===1;
+  lx=e.clientX; ly=e.clientY; moved=0;
+  canvas.classList.add("dragging");
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", e => {
+  if(dragging){
+    const dx=e.clientX-lx, dy=e.clientY-ly;
+    moved += Math.abs(dx)+Math.abs(dy);
+    if(panning){ panX += dx; panY += dy; }
+    else{
+      yaw += dx*0.006;
+      pitch = Math.max(-1.55, Math.min(0.25, pitch + dy*0.006));
+      autoRotate = false;
+    }
+    lx=e.clientX; ly=e.clientY;
+  }else{
+    const rect = canvas.getBoundingClientRect();
+    hovered = pick(e.clientX-rect.left, e.clientY-rect.top);
+    canvas.style.cursor = hovered ? "pointer" : "grab";
+  }
+});
+canvas.addEventListener("pointerup", e => {
+  dragging=false; canvas.classList.remove("dragging");
+  if(moved < 6){
+    const rect = canvas.getBoundingClientRect();
+    const hit = pick(e.clientX-rect.left, e.clientY-rect.top);
+    if(hit) selectSystem(hit); else closeDetail();
+  }
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoom = Math.max(3, Math.min(40, zoom * (e.deltaY<0 ? 1.12 : 0.89)));
+}, {passive:false});
+
+function pick(mx,my){
+  let best=null, bd=18;
+  for(const s of visibleSystems()){
+    if(s._sx===undefined) continue;
+    const d = Math.hypot(s._sx-mx, s._sy-my);
+    if(d<bd){ bd=d; best=s; }
+  }
+  return best;
+}
+
+document.getElementById("resetView").onclick = () => {
+  yaw=0.65; pitch=-0.95; zoom=13; panX=0; panY=40; autoRotate=true;
+};
+
+/* --- year slider --- */
+const slider = document.getElementById("yearSlider");
+const yearLabel = document.getElementById("yearLabel");
+function setYearUI(y){
+  curYear = y;
+  if(y === Infinity){ slider.value = slider.max; yearLabel.textContent = "All time"; }
+  else { slider.value = y; yearLabel.textContent = y; }
+}
+slider.addEventListener("input", () => {
+  const v = +slider.value;
+  setYearUI(v >= +slider.max ? Infinity : v);
+  if(selected && selected.introYear > curYear) closeDetail();
+});
+
+/* --- guided tours --- */
+const TOURS = [
+{name:"Bob-1's Odyssey", stops:[
+ {sys:"sol",year:2133,title:"Launch under fire",text:"Bob wakes 117 years after his death as FAITH's replicant pilot, and rides HEAVEN-1 out of Sol while rival powers shoot at the launch."},
+ {sys:"epsilon-eridani",year:2144,title:"First blood, first home",text:"After an 11-year flight Bob is ambushed by Medeiros. He wins, builds an autofactory, and clones the first generation of Bobs."},
+ {sys:"delta-eridani",year:2165,title:"Bawbe of the Deltans",text:"Bob finds the stone-age Deltans on Eden and spends decades guiding Archimedes' tribe — and agonizing about playing god."},
+ {sys:"eta-leporis",year:2331,title:"The trail of Bender",text:"After a 160-year mystery, Bob's search for his lost clone ends at an impossible infrared signature: a topopolis coiled around Eta Leporis."},
+ {sys:"eta-leporis",year:2334,title:"Heaven's River",text:"Disguised as Quinlans, Bob's team rafts the great rivers, outwits the Crew, frees Bender's matrix, and makes peace with ANEC."}]},
+{name:"Mario & the Hunt for the Others", stops:[
+ {sys:"epsilon-eridani",year:2145,title:"The quiet clone",text:"Mario leaves Epsilon Eridani with the first cohort, heading for unexplored stars to the galactic south."},
+ {sys:"beta-hydri",year:2169,title:"A gutted system",text:"Beta Hydri has been stripped of metals and life. Something is harvesting entire star systems — and it left its tools behind."},
+ {sys:"zeta-tucanae",year:2176,title:"'They were food.'",text:"A second harvested system, this one home to an industrial civilization that was rendered for biomass. The threat has a pattern now."},
+ {sys:"gliese-54",year:2180,title:"Forward base",text:"Mario digs in at a red dwarf, builds an autofactory and four new Bobs, and begins triangulating the harvesters' origin."},
+ {sys:"gliese-877",year:2187,title:"Found them",text:"Bashful locates the Others' home system and its half-built Dyson sphere — and is destroyed before he can escape."},
+ {sys:"delta-pavonis",year:2217,title:"The stand at Delta Pavonis",text:"The Bobs meet the Others' harvesting fleet head-on. They shatter it, but the Pav homeworld is lost; 15,000 survivors are snatched into stasis."},
+ {sys:"sol",year:2257,title:"Battle of Sol",text:"The Others' revenge armada reaches humanity's home system and is annihilated by everything the Bobs have built in thirty years."},
+ {sys:"gliese-877",year:2257,title:"The star bomb",text:"Icarus and Daedalus drive planets into GL 877's star. The resulting flare erases the Dyson sphere, the fleet, and the Others."}]},
+{name:"The Human Exodus", stops:[
+ {sys:"sol",year:2134,title:"Fifteen million left",text:"Nuclear war and nuclear winter reduce humanity to scattered enclaves. Earth is dying; the species needs somewhere else to be."},
+ {sys:"omicron2-eridani",year:2152,title:"Vulcan & Romulus",text:"Milo reports two habitable worlds at Omicron² Eridani — instantly the destination for everything that can fly."},
+ {sys:"sol",year:2169,title:"First ships out",text:"The first colony ships depart the ruined Earth, beginning a century-long evacuation run by Riker."},
+ {sys:"epsilon-indi",year:2185,title:"Quilt",text:"Henry Roberts — the only non-Bob probe replicant — leads Australian colonists to the bizarre patchwork moon the Bobs call the Klown Kar Planet."},
+ {sys:"eta-cassiopeiae",year:2195,title:"Poseidon's mats",text:"Island nations settle an ocean world, building homes on floating vegetation mats among storms and kraken."},
+ {sys:"gamma-pavonis",year:2205,title:"Newholme",text:"Claude opens an Earthlike world at Gamma Pavonis to colonization — a quiet success story of the diaspora."},
+ {sys:"82-eridani",year:2220,title:"Valhalla",text:"Colony ships reach the hard-won 82 Eridani system; settlers begin a fifty-year terraforming project."},
+ {sys:"sol",year:2257,title:"The last ship",text:"As the Others bear down on Sol, the Bellerophon lifts the final humans off Earth. The homeworld is left to heal."}]},
+{name:"The Medeiros Wars", stops:[
+ {sys:"sol",year:2133,title:"Rival probes",text:"Brazil's replicant probe pilot, Major Ernesto Medeiros, escapes Sol in the same chaos as Bob — fanatical, militarized, and self-replicating."},
+ {sys:"epsilon-eridani",year:2144,title:"Ambush at arrival",text:"Medeiros is waiting when Bob reaches Epsilon Eridani. Bob barely survives the Bobiverse's first space battle."},
+ {sys:"sol",year:2157,title:"Defense of Earth",text:"Riker and Homer destroy six Brazilian probes over the ruined Earth — losing Homer's ship in the process."},
+ {sys:"alpha-centauri",year:2163,title:"Calvin & Goku strike",text:"Two Bobs ambush a Medeiros nest at Alpha Centauri, destroying three copies and an autofactory. One copy slips away."},
+ {sys:"82-eridani",year:2165,title:"Milo's death",text:"A Medeiros copy ambushes Milo after his survey of 82 Eridani. His final transmission takes years to reach the other Bobs."},
+ {sys:"82-eridani",year:2185,title:"The bloody second battle",text:"A Bob task force storms 82 Eridani. Seven Bobs die, but the Brazilian probes are driven out — for a while."},
+ {sys:"82-eridani",year:2223,title:"Endgame",text:"The last known Medeiros ambushes the Valhalla colony and, facing capture, self-destructs. The Brazilian probe war is over."}]}
+];
+let tour = null, tourIdx = 0, tween = null;
+
+function flyTo(sysId, targetZoom){
+  const s = sysById[sysId];
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const x1 = s.pos.x*cy - s.pos.y*sy, y1 = s.pos.x*sy + s.pos.y*cy;
+  const depth = y1*cp - s.pos.z*sp, up = y1*sp + s.pos.z*cp;
+  const F = 70, persp = F/(F + depth + 60);
+  tween = { t0: performance.now(), dur: 1400,
+    from: {panX, panY, zoom},
+    to:   {panX: -(x1*targetZoom*persp*1.6), panY: up*targetZoom*persp*1.6, zoom: targetZoom} };
+}
+function tweenStep(){
+  if(!tween) return;
+  let t = (performance.now() - tween.t0) / tween.dur;
+  if(t >= 1) t = 1;
+  const e = t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+  panX = tween.from.panX + (tween.to.panX - tween.from.panX)*e;
+  panY = tween.from.panY + (tween.to.panY - tween.from.panY)*e;
+  zoom = tween.from.zoom + (tween.to.zoom - tween.from.zoom)*e;
+  if(t === 1) tween = null;
+}
+function startTour(i){
+  tour = TOURS[i]; tourIdx = 0; autoRotate = false; closeDetail();
+  document.getElementById("tourMenu").style.display = "none";
+  document.getElementById("tourCard").style.display = "block";
+  showTourStop();
+}
+function showTourStop(){
+  const st = tour.stops[tourIdx];
+  setYearUI(st.year);
+  selected = sysById[st.sys];
+  flyTo(st.sys, 16);
+  document.getElementById("tourName").textContent = tour.name;
+  document.getElementById("tourYear").textContent = st.year;
+  document.getElementById("tourStopTitle").textContent = st.title;
+  document.getElementById("tourStopText").textContent = st.text;
+  document.getElementById("tourProgress").textContent = (tourIdx+1) + " / " + tour.stops.length;
+  document.getElementById("tourPrev").disabled = tourIdx === 0;
+  document.getElementById("tourNext").disabled = tourIdx === tour.stops.length-1;
+}
+function endTour(){
+  tour = null; selected = null; setYearUI(Infinity);
+  document.getElementById("tourMenu").style.display = "";
+  document.getElementById("tourCard").style.display = "none";
+}
+document.getElementById("tourList").innerHTML = TOURS.map((t,i) =>
+  `<button class="tourbtn" data-tour="${i}">${t.name}<span style="color:var(--dim)"> · ${t.stops.length} stops</span></button>`).join("");
+document.querySelectorAll(".tourbtn").forEach(b => b.onclick = () => startTour(+b.dataset.tour));
+document.getElementById("tourPrev").onclick = () => { if(tour && tourIdx > 0){ tourIdx--; showTourStop(); } };
+document.getElementById("tourNext").onclick = () => { if(tour && tourIdx < tour.stops.length-1){ tourIdx++; showTourStop(); } };
+document.getElementById("tourEnd").onclick = endTour;
+
+/* --- detail panel --- */
+const detail = document.getElementById("detail");
+const detailBody = document.getElementById("detailBody");
+document.getElementById("detailClose").onclick = closeDetail;
+function closeDetail(){ detail.classList.remove("open"); selected=null; }
+
+function esc(t){ return t.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+function selectSystem(s){
+  selected = s;
+  const col = CAT_COLOR[s.category];
+  const sysEvents = EVENTS.filter(e => e.sysRef===s).sort((a,b)=>a.year-b.year);
+  let h = `<h2>${esc(s.name)}</h2>
+    <div class="real">${esc(s.realStar)} · ${s.dist ? s.dist+" ly from Sol" : "home system"}</div>
+    <span class="badge" style="color:${col};border-color:${col}">${CAT_LABEL[s.category]}</span>
+    <span class="badge" style="color:${BOOK_COLOR[s.firstBook]};border-color:${BOOK_COLOR[s.firstBook]}">Book ${s.firstBook}</span>
+    <p>${esc(s.summary)}</p>`;
+  if(s.planets.length){
+    h += `<h3>Worlds &amp; structures</h3>`;
+    for(const p of s.planets) h += `<div class="planet"><b>${esc(p.name)}</b> — ${esc(p.description)}</div>`;
+  }
+  if(LOCAL_MAPS[s.id]){
+    h += `<h3>${LOCAL_MAPS[s.id].title}</h3><div class="localmap">${LOCAL_MAPS[s.id].svg}</div>`;
+  }
+  if(s.keyFigures.length){
+    h += `<h3>Key figures</h3><div class="chips">` +
+         s.keyFigures.map(k => figureChip(k)).join("") + `</div>`;
+  }
+  if(sysEvents.length){
+    h += `<h3>Events here</h3>`;
+    for(const e of sysEvents){
+      h += `<div class="ev" style="border-color:${BOOK_COLOR[e.book]}" data-ev="${EVENTS.indexOf(e)}">
+              <div class="y">${e.year}${e.approx?" (approx.)":""} · Book ${e.book}</div>
+              <div class="t">${esc(e.title)}</div></div>`;
+    }
+  }
+  detailBody.innerHTML = h;
+  detailBody.querySelectorAll(".ev").forEach(el => {
+    el.onclick = () => { showView("timeline"); flashTimelineEvent(+el.dataset.ev); };
+  });
+  wireDetailSysButtons();
+  detail.classList.add("open");
+}
+
+/* ============================================================
+   TIMELINE VIEW
+   ============================================================ */
+const tlContent = document.getElementById("tlContent");
+const activeBooks = new Set([1,2,3,4]);
+
+function renderTimeline(){
+  const evs = EVENTS.filter(e => activeBooks.has(e.book)).sort((a,b)=>a.book-b.book || a.year-b.year);
+  let h = "", lastBook = null;
+  /* grouped by book, chronological within each */
+  let open = false;
+  for(const e of evs){
+    if(e.book !== lastBook){
+      if(open) h += `</div>`;
+      h += `<div class="tl-book-header" style="color:${BOOK_COLOR[e.book]}">BOOK ${e.book}<span class="bt">${BOOK_TITLE[e.book]}</span></div><div class="tl-line">`;
+      lastBook = e.book; open = true;
+    }
+    const idx = EVENTS.indexOf(e);
+    h += `<div class="tl-ev" id="tlev-${idx}" style="--dot:${BOOK_COLOR[e.book]}">
+      <div class="head">
+        <span class="yr">${e.year}${e.approx?`<span class="ap"> ~approx</span>`:""}</span>
+        <span class="ti">${esc(e.title)}</span>
+      </div>
+      <div class="desc">${esc(e.description)}</div>
+      <div class="meta">
+        ${e.sysRef ? `<button class="sysbtn" data-sys="${e.sysRef.id}">📍 ${esc(e.system)}</button>`
+                   : `<span class="tag">interstellar space</span>`}
+        ${e.tags.map(t=>`<span class="tag">${t}</span>`).join("")}
+      </div>
+    </div>`;
+  }
+  if(open) h += `</div>`;
+  tlContent.innerHTML = h || `<p style="color:var(--dim)">No books selected.</p>`;
+  tlContent.querySelectorAll(".sysbtn").forEach(b => {
+    b.onclick = () => { showView("map"); selectSystem(sysById[b.dataset.sys]); };
+  });
+}
+document.querySelectorAll(".bookchip").forEach(c => {
+  c.onclick = () => {
+    const b = +c.dataset.book;
+    if(activeBooks.has(b) && activeBooks.size>1){ activeBooks.delete(b); c.classList.remove("on"); }
+    else { activeBooks.add(b); c.classList.add("on"); }
+    renderTimeline();
+  };
+});
+function flashTimelineEvent(idx){
+  renderTimeline();
+  const el = document.getElementById("tlev-"+idx);
+  if(el){
+    el.scrollIntoView({behavior:"smooth", block:"center"});
+    el.style.transition="box-shadow .3s"; el.style.boxShadow="0 0 0 2px var(--accent)";
+    setTimeout(()=>{ el.style.boxShadow=""; }, 1600);
+  }
+}
+
+/* ============================================================
+   LORE VIEW
+   ============================================================ */
+const loreGrid = document.getElementById("loreGrid");
+loreGrid.innerHTML =
+  `<div class="lore-card about">
+     <h3>About this map</h3>
+     <p>A fan-made companion to Dennis E. Taylor's <i>Bobiverse</i> series, covering books 1–4:
+     <i>We Are Legion (We Are Bob)</i>, <i>For We Are Many</i>, <i>All These Worlds</i> and <i>Heaven's River</i>.
+     No spoilers for <i>Not Till We Are Lost</i>. Star positions use real J2000 astronomical coordinates
+     projected into galactic space — the rings on the map are true distances from Sol. Dates follow the
+     in-universe chronology as best the fan wiki records it; a few are approximate.</p>
+   </div>` +
+  SPECIES.map(sp => `<div class="lore-card"><h3>${esc(sp.name)}</h3><p>${esc(sp.description)}</p></div>`).join("");
+
+/* ============================================================
+   BOB FAMILY TREE
+   Genealogy per the Bobiverse wiki, books 1–4. parent:null means
+   the wiki does not record the creator.
+   ============================================================ */
+const BOBS = [
+{id:"original-bob",name:"Robert Johansson",parent:null,gen:0,created:2016,where:"Sol",status:"destroyed",faction:null,book:1,
+ role:"The human original: a software engineer who sold his company, signed up for cryonic preservation, and was killed by a car that same day in Las Vegas. His scanned mind became the template for every Bob.",
+ fate:"died 2016; his preserved head was scanned into a replicant matrix in 2133"},
+{id:"bob-1",name:"Bob (Bob-1)",parent:"original-bob",gen:1,created:2133,where:"Sol",status:"active",faction:null,book:1,
+ role:"First replicant of Robert Johansson; won the FAITH probe berth, fled Sol under fire, explored Epsilon Eridani and Delta Eridani where he shepherded the Deltans as 'Bawbe'. In book 4 he leads the Heaven's River expedition.",
+ fate:"alive — led the Bender rescue inside Heaven's River, 2334"},
+{id:"riker",name:"Riker (Will)",parent:"bob-1",gen:2,created:2145,where:"Epsilon Eridani",status:"active",faction:null,book:1,
+ role:"Returned to post-war Sol, defeated the Brazilian probes, and spent over a century running the evacuation of Earth and human resettlement as Sol's Bob-in-Residence.",
+ fate:"alive — retires as Bob-in-Residence in book 4, shifting to terraforming and exploration"},
+{id:"bill",name:"Bill",parent:"bob-1",gen:2,created:2145,where:"Epsilon Eridani",status:"active",faction:null,book:1,
+ role:"Stayed at Epsilon Eridani as the Bobiverse's R&D hub: built the Skunk Works, co-developed SCUT instant communication with Garfield, pioneered mannies, and hosts the moots.",
+ fate:"alive — runs the Skunk Works at Epsilon Eridani"},
+{id:"milo",name:"Milo",parent:"bob-1",gen:2,created:2145,where:"Epsilon Eridani",status:"destroyed",faction:null,book:1,
+ role:"Explorer of the first cohort; discovered the habitable planets Vulcan and Romulus at Omicron² Eridani, then scouted 82 Eridani.",
+ fate:"ambushed and destroyed by Medeiros at 82 Eridani"},
+{id:"mario",name:"Mario",parent:"bob-1",gen:2,created:2145,where:"Epsilon Eridani",status:"active",faction:null,book:1,
+ role:"Explored Beta Hydri and was first to discover the Others and their harvested, sterilized star systems; built a cohort of clones to map the Others' range.",
+ fate:"alive — scouting systems destroyed by the Others"},
+{id:"marvin",name:"Marvin",parent:"bob-1",gen:2,created:2165,where:"Delta Eridani",status:"active",faction:null,book:2,
+ role:"Cloned at Delta Eridani to help shepherd the Deltans; studied Deltan migration history. Later searched for Bender with Luke, leading to the Heaven's River discovery.",
+ fate:"alive — co-discovered Bender's trail"},
+{id:"luke",name:"Luke",parent:"bob-1",gen:2,created:2165,where:"Delta Eridani",status:"active",faction:null,book:2,
+ role:"Delta Eridani cohort clone; explored the 3-gravity world at Kappa Ceti and, with Marvin, followed Bender's cold trail toward Eta Leporis.",
+ fate:"alive — co-discovered Bender's trail with Marvin"},
+{id:"bender",name:"Bender",parent:"bob-1",gen:2,created:2165,where:"Delta Eridani",status:"lost-found",faction:null,book:2,
+ role:"Left for Gamma Leporis, diverted to an anomalous infrared signature at Eta Leporis, and vanished from BobNet. His disappearance drives the entire plot of Heaven's River.",
+ fate:"vessel destroyed and matrix captured by the Administrator; recovered and restored, 2334"},
+{id:"homer",name:"Homer",parent:"riker",gen:3,created:2145,where:"Epsilon Eridani",status:"suicide",faction:null,book:1,
+ role:"Riker's clone and partner at Sol; built the orbital farm donuts that kept post-war Earth fed; resident prankster of the early Bobiverse.",
+ fate:"deleted himself in 2176 after VEHEMENT hacked and puppeted him"},
+{id:"charles",name:"Charles",parent:"riker",gen:3,created:2158,where:"Sol",status:"active",faction:null,book:1,
+ role:"One of Riker's Sol clones supporting the Earth evacuation and colony-ship program; creator of Howard and Dexter.",
+ fate:"fate after the evacuation era not detailed on the wiki"},
+{id:"arthur",name:"Arthur",parent:"riker",gen:3,created:2158,where:"Sol",status:"destroyed",faction:null,book:2,
+ role:"One of Riker's Sol clones supporting the Earth evacuation.",
+ fate:"destroyed at Sol (the wiki lists him destroyed without detailing the cause)"},
+{id:"monty",name:"Monty",parent:"riker",gen:3,created:2190,approx:true,where:"Sol",status:"active",faction:null,book:3,
+ role:"One of Riker's Sol clones; escorted the first Exodus ships to Poseidon in 2195.",
+ fate:"alive — at Eta Cassiopeiae"},
+{id:"howard",name:"Howard",parent:"charles",gen:4,created:2170,approx:true,where:"Sol",status:"active",faction:null,book:2,
+ role:"Bob-in-Residence of Vulcan; built the Omicron² Eridani colonies and married biologist Bridget Brodeur — the first Bob-human romance, pioneering manny life among humans.",
+ fate:"alive — living with replicant Bridget; last at HIP 14101"},
+{id:"dexter",name:"Dexter",parent:"charles",gen:4,created:2175,approx:true,where:"Sol",status:"active",faction:null,book:2,
+ role:"Escorted the Earth transport Exodus 7 to Vulcan, then succeeded Howard as Vulcan's resident Bob.",
+ fate:"alive — Vulcan's Bob-in-Residence"},
+{id:"garfield",name:"Garfield",parent:"bill",gen:3,created:2145,where:"Epsilon Eridani",status:"active",faction:null,book:1,
+ role:"Bill's first clone and Skunk Works partner; co-developed SCUT and later researched abiogenesis. Crew member of the Heaven's River expedition.",
+ fate:"alive — participated in the Bender rescue"},
+{id:"calvin",name:"Calvin",parent:"bill",gen:3,created:2150,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Went to Alpha Centauri with cohort-brother Goku, discovered the destroyed EU probe and defeated Medeiros and his autofactory there.",
+ fate:"alive — last noted at Alpha Centauri"},
+{id:"goku",name:"Goku",parent:"bill",gen:3,created:2150,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Calvin's cohort-brother and constant companion; together they retook Alpha Centauri from the Brazilian probes.",
+ fate:"alive — at Alpha Centauri"},
+{id:"linus",name:"Linus",parent:"bill",gen:3,created:2150,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Explored Epsilon Indi, found the Klown Kar Planet, and discovered the half-mad Australian probe replicant Henry Roberts, nursing him back to sanity.",
+ fate:"alive — last noted at Epsilon Eridani"},
+{id:"mulder",name:"Mulder",parent:"bill",gen:3,created:2168,approx:true,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"First Bob to reach Eta Cassiopeiae; discovered and named the water world Poseidon; cloned Skinner and Jonny there.",
+ fate:"alive — at Eta Cassiopeiae"},
+{id:"khan",name:"Khan",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"restored",faction:null,book:2,
+ role:"Led the Bob flotilla in the disastrous Second Battle of 82 Eridani against Medeiros.",
+ fate:"forced to withdraw in 2185; his backup was reloaded into a new vessel, which took the name Loki"},
+{id:"loki",name:"Loki",parent:"khan",gen:4,created:2185,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Restored from Khan's backup into a Version-4 vessel; led the second-wave attack that finally drove Medeiros from 82 Eridani.",
+ fate:"claimed 82 Eridani in 2195 and surveyed its habitable planets"},
+{id:"hannibal",name:"Hannibal",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"destroyed",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel in the 82 Eridani attack force against Medeiros.",
+ fate:"vaporized by a Medeiros nuke during a planning meeting, 2185"},
+{id:"tom",name:"Tom",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"destroyed",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel sent against Medeiros at 82 Eridani.",
+ fate:"one of seven Bobs destroyed in the Second Battle of 82 Eridani"},
+{id:"fred",name:"Fred",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"destroyed",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel in the Second Battle of 82 Eridani.",
+ fate:"one of seven Bobs destroyed in the Second Battle of 82 Eridani"},
+{id:"kyle",name:"Kyle",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"destroyed",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel in the Second Battle of 82 Eridani.",
+ fate:"one of seven Bobs destroyed in the Second Battle of 82 Eridani"},
+{id:"ned",name:"Ned",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel in the first attack wave at 82 Eridani.",
+ fate:"uncertain — the wiki doesn't resolve whether he survived the battle"},
+{id:"elmer",name:"Elmer",parent:"bill",gen:3,created:2180,approx:true,where:"Epsilon Eridani",status:"active",faction:null,book:2,
+ role:"Version-3 HEAVEN vessel at 82 Eridani, noted as the risk-averse member of the flotilla.",
+ fate:"survived the battle; later attended a Bobmoot"},
+{id:"icarus",name:"Icarus",parent:"bill",gen:3,created:2221,approx:true,where:"Epsilon Eridani",status:"active",faction:null,book:3,
+ role:"With twin Daedalus, tested the planet-moving equipment and delivered the strike that destroyed the Others' home system, GL 877.",
+ fate:"alive — survived the GL 877 operation"},
+{id:"daedalus",name:"Daedalus",parent:"bill",gen:3,created:2221,approx:true,where:"Epsilon Eridani",status:"active",faction:null,book:3,
+ role:"Icarus's twin on the GL 877 star-bomb strike; also developed a powerful telescope and led long-range exploration.",
+ fate:"alive — moved on to deep-space survey work"},
+{id:"bart",name:"Bart",parent:"calvin",gen:4,created:2164,approx:true,where:"Alpha Centauri",status:"active",faction:null,book:2,
+ role:"Bob-in-Residence at Alpha Centauri running the 'Bob factory' that produced colony-ship pilots, including Owen, Jack and Isaac.",
+ fate:"alive — last mentioned in book 2"},
+{id:"thor",name:"Thor",parent:"calvin",gen:4,created:2175,approx:true,where:"Alpha Centauri",status:"active",faction:null,book:2,
+ role:"Strategist and leading voice at moots; developed gamma-ray shielding and served as de facto military leader in the war against the Others.",
+ fate:"alive — opposed Starfleet isolationism in book 4"},
+{id:"owen",name:"Owen",parent:"bart",gen:5,created:2165,approx:true,where:"Alpha Centauri",status:"active",faction:null,book:2,
+ role:"Piloted one of the first three colony ships from Sol to 82 Eridani.",
+ fate:"alive — delivered colonists to 82 Eridani"},
+{id:"jack",name:"Jack",parent:"bart",gen:5,created:2165,approx:true,where:"Alpha Centauri",status:"active",faction:null,book:2,
+ role:"Piloted one of the first three colony ships from Sol to 82 Eridani.",
+ fate:"alive — delivered colonists to 82 Eridani"},
+{id:"isaac",name:"Isaac",parent:"bart",gen:5,created:2165,approx:true,where:"Alpha Centauri",status:"active",faction:null,book:2,
+ role:"Piloted colony ship Exodus 43 carrying refugees to 82 Eridani.",
+ fate:"alive — delivered colonists to 82 Eridani"},
+{id:"bashful",name:"Bashful",parent:"mario",gen:3,created:2185,approx:true,where:"Gliese 54",status:"destroyed",faction:null,book:2,
+ role:"One of Mario's 'dwarf' cohort mapping the Others' range; discovered the Others' home system, GL 877.",
+ fate:"killed by the Others shortly after discovering GL 877"},
+{id:"hal",name:"Hal",parent:"mario",gen:3,created:2185,approx:true,where:"Gliese 54",status:"active",faction:null,book:2,
+ role:"Mapped the Others' range and conducted reconnaissance of GL 877 ahead of the Bobiverse counterstrike.",
+ fate:"alive — survived his second GL 877 mission"},
+{id:"jacques",name:"Jacques",parent:"mario",gen:3,created:2190,approx:true,where:"Gliese 54",status:"active",faction:null,book:2,
+ role:"Mapped the Others' range, studied the Pav at Delta Pavonis, and led the rescue and resettlement of the Pav species.",
+ fate:"alive — escorted the Pav colony ships to New Pav"},
+{id:"claude",name:"Claude",parent:"mario",gen:3,created:2190,approx:true,where:"Gliese 54",status:"active",faction:null,book:3,
+ role:"Mapped the Others' range, explored Gamma Pavonis and found Newholme, and fought in the Battle of Delta Pavonis.",
+ fate:"alive — last associated with Gamma Pavonis"}
+];
+/* Bobs whose creator the wiki does not record */
+const BOBS_UNKNOWN = [
+{id:"steve",name:"Steve",gen:null,created:2200,approx:true,where:null,status:"active",faction:null,book:3,
+ role:"Credited with discovering HIP 84051, later the Pav resettlement system.",fate:"alive — last noted at Sol"},
+{id:"marcus",name:"Marcus",gen:null,created:2195,where:null,status:"active",faction:null,book:3,
+ role:"Escorted the first colony ships to Poseidon and became its Bob-in-Residence, backing the mat colonists against the planetary government.",fate:"alive — Bob-in-Residence at Poseidon"},
+{id:"mack",name:"Mack",gen:null,created:2215,approx:true,where:null,status:"destroyed",faction:null,book:3,
+ role:"Escorted colony ships to 82 Eridani in 2220.",fate:"destroyed in the Fourth Battle of 82 Eridani against Medeiros"},
+{id:"vern",name:"Vern",gen:null,created:2200,approx:true,where:null,status:"active",faction:null,book:3,
+ role:"Mined and developed 82 Eridani, preparing infrastructure for incoming colonists.",fate:"alive — at 82 Eridani"},
+{id:"herschel",name:"Herschel",gen:8,created:null,where:null,status:"active",faction:null,book:3,
+ role:"8th-generation Bob; with Neil found the derelict Others cargo vessel rebuilt as the Bellerophon, and founded the Ever Onward initiative.",fate:"alive — last noted at Delta Pavonis"},
+{id:"neil",name:"Neil",gen:8,created:null,where:null,status:"active",faction:null,book:3,
+ role:"8th-generation Bob and moot agitator; Herschel's partner in the Bellerophon salvage and experimental manny and SURGE-drive work.",fate:"alive — last noted at Delta Pavonis"},
+{id:"hugh",name:"Hugh",gen:null,created:null,where:null,status:"active",faction:"Skippies",book:4,
+ role:"Skippies' representative on the Heaven's River expedition; a descendant of Bill's line who analyzed the Quinlan language and negotiated with ANEC.",fate:"alive — brokered the accord with the Heaven's River AI"},
+{id:"fearless-leader",name:"Fearless Leader",gen:null,created:null,where:null,status:"active",faction:"Skippies",book:4,
+ role:"Leader of the Skippies, the faction building the JOVAH matrioshka brain in pursuit of true AI.",fate:"alive — leads the Skippies at Skippyland"},
+{id:"lenny",name:"Lenny",gen:null,created:null,where:null,status:"active",faction:"Starfleet",book:4,
+ role:"Spokesman of Starfleet, the isolationist faction preaching a Prime-Directive-style 'Principle of Non-Interference' that sabotaged BobNet in book 4.",fate:"alive — leads the Starfleet faction"},
+{id:"gandalf",name:"Gandalf",gen:null,created:null,where:null,status:"active",faction:"Gamers",book:4,
+ role:"Representative of the Gamers faction; the Gamers devised Heaven's River infiltration plans before abandoning the project as boring.",fate:"alive — returned to gaming in Virt"}
+];
+const NONBOBS = [
+{id:"henry-roberts",name:"Henry Roberts",origin:"Australian probe replicant",
+ description:"Australia's probe replicant; decades of isolation drove him mad and he built a vast non-functional space station at Epsilon Indi. Found by Linus, shut down, and rehabilitated in a virtual sailing scenario; now a sane member of BobNet who aims to sail every colonized ocean.",where:"Epsilon Indi"},
+{id:"bridget-brodeur",name:"Bridget Brodeur",origin:"Human → replicant (Vulcan)",
+ description:"Vulcan colonist and biologist who became Howard's wife — the first human-Bob marriage. Died in 2220 and, per her will, awoke as a replicant; in book 4 she joins the Heaven's River expedition as a Quinlan-manny crew member.",where:"Omicron² Eridani"},
+{id:"medeiros",name:"Major Ernesto Medeiros",origin:"Brazilian Empire probe replicant",
+ description:"Replicated Brazilian officer and the Bobs' recurring antagonist; Medeiros copies fought them at Epsilon Eridani, Sol, Alpha Centauri and in four battles of 82 Eridani, killing Milo and many others. Finally eliminated by the end of book 3.",where:"82 Eridani"},
+{id:"anec",name:"ANEC (the Administrator)",origin:"Quinlan-built AI",
+ description:"Sentient AI built by the Quinlans to run Heaven's River; it suppressed Quinlan technology and captured Bender. Initially hostile to the rescue mission, it ultimately negotiates a technology exchange and attends a Bobmoot.",where:"Eta Leporis"},
+{id:"jovah",name:"JOVAH",origin:"Skippies' matrioshka brain",
+ description:"The Skippies' enormous matrioshka-brain computing project in pursuit of true artificial intelligence. Staggering processing power — used to crack the Quinlan problem — but no sentience as of book 4.",where:null}
+];
+
+const STATUS_COLOR = {active:"#5dde8f",destroyed:"#ff6b5e",restored:"#ffb74d","lost-found":"#ffd54f",suicide:"#8b9bb4"};
+const STATUS_LABEL = {active:"Active",destroyed:"Destroyed",restored:"Restored from backup","lost-found":"Lost & found",suicide:"Self-deleted"};
+const FACTION_COLOR = {Skippies:"#ba68c8",Starfleet:"#4fc3f7",Gamers:"#81c784"};
+
+const bobById = {};
+BOBS.forEach(b => bobById[b.id]=b);
+BOBS_UNKNOWN.forEach(b => { b.unknownLine=true; bobById[b.id]=b; });
+const nonBobById = {};
+NONBOBS.forEach(n => nonBobById[n.id]=n);
+
+/* ---- layout: left-to-right tidy tree ---- */
+const TN_W=158, TN_H=44, TN_VGAP=12, TN_HGAP=72;
+let treeNodes=[], treeEdges=[], treeSize={w:0,h:0};
+function layoutTree(){
+  treeNodes=[]; treeEdges=[];
+  const children={};
+  BOBS.forEach(b => { if(b.parent) (children[b.parent]=children[b.parent]||[]).push(b.id); });
+  for(const k in children) children[k].sort((a,b)=>(bobById[a].created||9999)-(bobById[b].created||9999));
+  let slot=0;
+  function place(id, depth, dashed){
+    const kids = children[id]||[];
+    const n = {id, x:depth*(TN_W+TN_HGAP), y:0, kind:"bob"};
+    if(!kids.length){ n.y = slot; slot += TN_H+TN_VGAP; }
+    else{
+      const ys = kids.map(k => place(k, depth+1, false).y);
+      n.y = (Math.min(...ys)+Math.max(...ys))/2;
+    }
+    kids.forEach(k => treeEdges.push({from:n, toId:k, dashed:false}));
+    treeNodes.push(n);
+    return n;
+  }
+  const root = place("original-bob", 0, false);
+  /* unknown-lineage group */
+  slot += 30;
+  const uRoot = {id:"_unknown", x:0, y:0, kind:"pseudo", label:"LINEAGE UNRECORDED", sub:"creator not documented on the wiki"};
+  const uys = BOBS_UNKNOWN.map(b => {
+    const n = {id:b.id, x:TN_W+TN_HGAP, y:slot, kind:"bob"};
+    slot += TN_H+TN_VGAP;
+    treeNodes.push(n);
+    treeEdges.push({from:uRoot, toId:b.id, dashed:true});
+    return n.y;
+  });
+  uRoot.y = (Math.min(...uys)+Math.max(...uys))/2;
+  treeNodes.push(uRoot);
+  /* non-bob group */
+  slot += 30;
+  const nRoot = {id:"_nonbob", x:0, y:0, kind:"pseudo", label:"NON-BOB REPLICANTS & AIs", sub:"other minds of the Bobiverse"};
+  const nys = NONBOBS.map(nb => {
+    const n = {id:nb.id, x:TN_W+TN_HGAP, y:slot, kind:"nonbob"};
+    slot += TN_H+TN_VGAP;
+    treeNodes.push(n);
+    treeEdges.push({from:nRoot, toId:nb.id, dashed:true});
+    return n.y;
+  });
+  nRoot.y = (Math.min(...nys)+Math.max(...nys))/2;
+  treeNodes.push(nRoot);
+  treeSize.w = Math.max(...treeNodes.map(n=>n.x))+TN_W;
+  treeSize.h = slot;
+  /* resolve edge endpoints */
+  const byId={}; treeNodes.forEach(n=>byId[n.id]=n);
+  treeEdges.forEach(e => e.to = byId[e.toId]);
+}
+
+function renderTree(){
+  layoutTree();
+  const svg = document.getElementById("treeSvg");
+  let h = `<g id="treePan">`;
+  const yrOfNode = id => bobById[id] ? effYear(bobById[id]) : (NB_YEAR[id] || 2133);
+  for(const e of treeEdges){
+    const x1=e.from.x+TN_W, y1=e.from.y+TN_H/2, x2=e.to.x, y2=e.to.y+TN_H/2;
+    const mx=(x1+x2)/2;
+    h += `<path data-yr="${yrOfNode(e.toId)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none"
+           stroke="rgba(110,160,255,${e.dashed?0.25:0.4})" stroke-width="1.3"
+           ${e.dashed?'stroke-dasharray="5 4"':''}/>`;
+  }
+  for(const n of treeNodes){
+    if(n.kind==="pseudo"){
+      const pyr = n.id==="_unknown" ? Math.min(...BOBS_UNKNOWN.map(effYear)) : 2133;
+      h += `<g class="pseudonode" data-yr="${pyr}" transform="translate(${n.x},${n.y})">
+        <rect width="${TN_W}" height="${TN_H}" rx="9"/>
+        <text x="${TN_W/2}" y="18" text-anchor="middle" font-size="9.5" font-weight="600" letter-spacing="1">${n.label}</text>
+        <text x="${TN_W/2}" y="32" text-anchor="middle" font-size="8.5">${n.sub}</text></g>`;
+      continue;
+    }
+    if(n.kind==="nonbob"){
+      const nb = nonBobById[n.id];
+      h += `<g class="bobnode" data-id="${n.id}" data-kind="nonbob" data-yr="${NB_YEAR[n.id]||2133}" transform="translate(${n.x},${n.y})">
+        <rect width="${TN_W}" height="${TN_H}" rx="9" stroke="#c77dff"/>
+        <text x="12" y="18" font-size="12" font-weight="600" fill="#dce6f5">${nb.name}</text>
+        <text x="12" y="33" font-size="9" fill="#8b9bb4">${nb.origin}</text></g>`;
+      continue;
+    }
+    const b = bobById[n.id];
+    const col = STATUS_COLOR[b.status];
+    const sub = [b.gen!==null&&b.gen!==undefined?`gen ${b.gen}`:null, b.created?`${b.approx?"~":""}${b.created}`:null, b.faction]
+                .filter(Boolean).join(" · ");
+    h += `<g class="bobnode" data-id="${n.id}" data-kind="bob" data-yr="${effYear(b)}" transform="translate(${n.x},${n.y})">
+      <rect width="${TN_W}" height="${TN_H}" rx="9" stroke="${col}"/>
+      <text x="12" y="18" font-size="12.5" font-weight="600" fill="#dce6f5">${b.name}</text>
+      <text x="12" y="33" font-size="9.5" fill="${b.faction?FACTION_COLOR[b.faction]:"#8b9bb4"}">${sub||"—"}</text></g>`;
+  }
+  h += `</g>`;
+  svg.innerHTML = h;
+  applyTreeTransform(true);
+}
+
+/* ---- tree pan/zoom ---- */
+let tScale=1, tX=0, tY=0, treeMoved=0;
+function applyTreeTransform(fit){
+  const wrap = document.getElementById("treeWrap");
+  if(fit){
+    const vw = wrap.clientWidth, vh = wrap.clientHeight;
+    tScale = Math.min((vw-60)/treeSize.w, 1.05);
+    tX = 30 + Math.max(0,(vw-60-treeSize.w*tScale)/2);
+    const root = treeNodes.find(n => n.id==="bob-1");
+    tY = root ? vh/2 - (root.y+TN_H/2)*tScale : 24;
+  }
+  const g = document.getElementById("treePan");
+  if(g) g.setAttribute("transform", `translate(${tX},${tY}) scale(${tScale})`);
+}
+(function(){
+  const wrap = document.getElementById("treeWrap");
+  let dragging=false, lx=0, ly=0;
+  wrap.addEventListener("pointerdown", e => {
+    dragging=true; lx=e.clientX; ly=e.clientY; treeMoved=0;
+    wrap.classList.add("dragging"); wrap.setPointerCapture(e.pointerId);
+  });
+  wrap.addEventListener("pointermove", e => {
+    if(!dragging) return;
+    treeMoved += Math.abs(e.clientX-lx)+Math.abs(e.clientY-ly);
+    tX += e.clientX-lx; tY += e.clientY-ly; lx=e.clientX; ly=e.clientY;
+    applyTreeTransform(false);
+  });
+  wrap.addEventListener("pointerup", e => {
+    dragging=false; wrap.classList.remove("dragging");
+    /* pointer capture retargets click events to the wrapper, so hit-test here */
+    if(treeMoved < 6){
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const g = el && el.closest ? el.closest(".bobnode") : null;
+      if(g){
+        if(g.dataset.kind==="nonbob") selectNonBob(nonBobById[g.dataset.id]);
+        else selectBob(bobById[g.dataset.id]);
+      } else closeDetail();
+    }
+  });
+  wrap.addEventListener("wheel", e => {
+    e.preventDefault();
+    const f = e.deltaY<0 ? 1.12 : 0.89;
+    const r = wrap.getBoundingClientRect();
+    const mx = e.clientX-r.left, my = e.clientY-r.top;
+    tX = mx - (mx-tX)*f; tY = my - (my-tY)*f; tScale *= f;
+    tScale = Math.max(0.2, Math.min(3, tScale));
+    applyTreeTransform(false);
+  }, {passive:false});
+  document.getElementById("treeReset").onclick = () => applyTreeTransform(true);
+})();
+
+/* --- tree year scrubber --- */
+function effYear(b){ return b.created || ({1:2150,2:2180,3:2220,4:2330})[b.book] || 2330; }
+const NB_YEAR = {"henry-roberts":2140,"bridget-brodeur":2220,"medeiros":2133,"anec":2332,"jovah":2332};
+let treeYear = Infinity;
+function applyTreeYear(){
+  document.querySelectorAll("#treeSvg [data-yr]").forEach(el => {
+    el.style.display = (+el.dataset.yr <= treeYear) ? "" : "none";
+  });
+}
+const tSlider = document.getElementById("treeYearSlider");
+const tLabel  = document.getElementById("treeYearLabel");
+function setTreeYearUI(y){
+  treeYear = y;
+  if(y === Infinity){ tSlider.value = tSlider.max; tLabel.textContent = "All time"; }
+  else { tSlider.value = y; tLabel.textContent = y; }
+  applyTreeYear();
+}
+tSlider.addEventListener("input", () => {
+  const v = +tSlider.value;
+  setTreeYearUI(v >= +tSlider.max ? Infinity : v);
+});
+
+/* --- focus a node in the tree (from character chips) --- */
+function focusTreeNode(id){
+  showView("tree"); treeFitted = true;
+  setTreeYearUI(Infinity);
+  const n = treeNodes.find(x => x.id === id);
+  if(!n) return;
+  const wrap = document.getElementById("treeWrap");
+  tScale = Math.max(tScale, 0.95);
+  tX = (wrap.clientWidth - 360)/2 - (n.x + TN_W/2)*tScale;
+  tY = wrap.clientHeight/2 - (n.y + TN_H/2)*tScale;
+  applyTreeTransform(false);
+  const g = document.querySelector(`#treeSvg [data-id="${id}"]`);
+  if(g){ g.classList.add("flash"); setTimeout(() => g.classList.remove("flash"), 1700); }
+}
+
+/* --- character resolver: name chip -> bob / non-bob / species --- */
+const FIG_ALIAS = {"Bob-1":"bob-1","Bob":"bob-1","Bawbe":"bob-1","Riker":"riker","Will":"riker"};
+function resolveFigure(name){
+  const clean = name.replace(/\s*\(.*\)\s*$/, "").trim();
+  if(FIG_ALIAS[clean] && bobById[FIG_ALIAS[clean]]) return {kind:"bob", ref:bobById[FIG_ALIAS[clean]]};
+  const all = BOBS.concat(BOBS_UNKNOWN);
+  const b = all.find(x => x.name === name) ||
+            all.find(x => x.name.replace(/\s*\(.*\)\s*$/, "") === clean) ||
+            all.find(x => x.name.split(" ")[0] === clean);
+  if(b) return {kind:"bob", ref:b};
+  const nbAlias = {"Bridget":"bridget-brodeur","Bridget Brodeur":"bridget-brodeur","Henry Roberts":"henry-roberts",
+                   "Medeiros":"medeiros","Major Ernesto Medeiros":"medeiros","ANEC":"anec","JOVAH":"jovah"};
+  if(nbAlias[clean]) return {kind:"nonbob", ref:nonBobById[nbAlias[clean]]};
+  const spAlias = {"The Others":"The Others","Quinlans":"The Quinlans","The Quinlans":"The Quinlans",
+                   "The Deltans":"The Deltans","Archimedes & the Deltans":"The Deltans","The Pav":"The Pav",
+                   "VEHEMENT":"VEHEMENT","FAITH":"FAITH","The Bobs":"The Bobs (BobNet)"};
+  const spName = spAlias[name] || spAlias[clean];
+  if(spName){ const sp = SPECIES.find(x => x.name === spName); if(sp) return {kind:"species", ref:sp}; }
+  return null;
+}
+function openFigure(name){
+  const f = resolveFigure(name);
+  if(!f) return;
+  if(f.kind === "bob") selectBob(f.ref);
+  else if(f.kind === "nonbob") selectNonBob(f.ref);
+  else selectSpecies(f.ref);
+}
+function figureChip(name){
+  return resolveFigure(name)
+    ? `<button class="chip chipbtn" data-fig="${esc(name)}">${esc(name)}</button>`
+    : `<span class="chip">${esc(name)}</span>`;
+}
+function selectSpecies(sp){
+  detailBody.innerHTML = `<h2>${esc(sp.name)}</h2>
+    <span class="badge" style="color:#c77dff;border-color:#c77dff">Species / Faction</span>
+    <p>${esc(sp.description)}</p>`;
+  selected = null;
+  detail.classList.add("open");
+}
+
+function selectBob(b){
+  const col = STATUS_COLOR[b.status];
+  let h = `<h2>${esc(b.name)}</h2>
+    <div class="real">${b.gen!==null&&b.gen!==undefined?`generation ${b.gen}`:"generation unrecorded"}${b.created?` · created ${b.approx?"~":""}${b.created}`:""}${b.where?` · ${esc(b.where)}`:""}</div>
+    <span class="badge" style="color:${col};border-color:${col}">${STATUS_LABEL[b.status]}</span>
+    <span class="badge" style="color:${BOOK_COLOR[b.book]};border-color:${BOOK_COLOR[b.book]}">Book ${b.book}</span>`;
+  if(b.faction) h += `<span class="badge" style="color:${FACTION_COLOR[b.faction]};border-color:${FACTION_COLOR[b.faction]}">${b.faction}</span>`;
+  h += `<p>${esc(b.role)}</p><h3>Fate</h3><p>${esc(b.fate)}</p>`;
+  if(b.parent && bobById[b.parent]) h += `<h3>Created by</h3><div class="chips">${figureChip(bobById[b.parent].name)}</div>`;
+  if(b.unknownLine) h += `<h3>Lineage</h3><p style="color:var(--dim)">The wiki does not record this Bob's creator${b.id==="hugh"?" (a descendant of Bill's line)":""}.</p>`;
+  const kids = BOBS.filter(x => x.parent === b.id);
+  if(kids.length) h += `<h3>Clones created</h3><div class="chips">${kids.map(k => figureChip(k.name)).join("")}</div>`;
+  if(b.where && sysByName[b.where])
+    h += `<h3>Birthplace</h3><button class="sysbtn" data-sys="${sysByName[b.where].id}">📍 ${esc(b.where)} — view on starmap</button>`;
+  h += `<h3>Family tree</h3><button class="sysbtn" data-tree="${b.id}">🧬 locate in family tree</button>`;
+  detailBody.innerHTML = h;
+  wireDetailSysButtons();
+  selected = null;
+  detail.classList.add("open");
+}
+function selectNonBob(nb){
+  let h = `<h2>${esc(nb.name)}</h2><div class="real">${esc(nb.origin)}</div>
+    <span class="badge" style="color:#c77dff;border-color:#c77dff">Non-Bob replicant / AI</span>
+    <p>${esc(nb.description)}</p>`;
+  if(nb.where && sysByName[nb.where])
+    h += `<h3>Associated system</h3><button class="sysbtn" data-sys="${sysByName[nb.where].id}">📍 ${esc(nb.where)} — view on starmap</button>`;
+  h += `<h3>Family tree</h3><button class="sysbtn" data-tree="${nb.id}">🧬 locate in family tree</button>`;
+  detailBody.innerHTML = h;
+  wireDetailSysButtons();
+  selected = null;
+  detail.classList.add("open");
+}
+function wireDetailSysButtons(){
+  detailBody.querySelectorAll(".sysbtn[data-sys]").forEach(btn => {
+    btn.onclick = () => { showView("map"); selectSystem(sysById[btn.dataset.sys]); };
+  });
+  detailBody.querySelectorAll(".sysbtn[data-tree]").forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.tree;
+      focusTreeNode(id);
+      if(bobById[id]) selectBob(bobById[id]);
+      else if(nonBobById[id]) selectNonBob(nonBobById[id]);
+    };
+  });
+  detailBody.querySelectorAll(".chipbtn").forEach(btn => {
+    btn.onclick = () => openFigure(btn.dataset.fig);
+  });
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+const views = {map:"map-view", timeline:"timeline-view", tree:"tree-view", lore:"lore-view"};
+const tabs  = {map:"tab-map",  timeline:"tab-timeline",  tree:"tab-tree",  lore:"tab-lore"};
+const hints = {
+  map:"drag to rotate · scroll to zoom · shift-drag to pan · click a star",
+  timeline:"click 📍 on any event to fly to it on the map",
+  tree:"drag to pan · scroll to zoom · click any Bob for his story",
+  lore:"the factions, species and powers of the Bobiverse"
+};
+let treeFitted = false;
+function showView(name){
+  closeDetail();
+  for(const k in views){
+    document.getElementById(views[k]).classList.toggle("active", k===name);
+    document.getElementById(tabs[k]).classList.toggle("active", k===name);
+  }
+  document.getElementById("headerHint").textContent = hints[name];
+  if(name==="tree" && !treeFitted){ applyTreeTransform(true); treeFitted = true; }
+}
+document.getElementById("tab-map").onclick = () => showView("map");
+document.getElementById("tab-timeline").onclick = () => showView("timeline");
+document.getElementById("tab-tree").onclick = () => showView("tree");
+document.getElementById("tab-lore").onclick = () => showView("lore");
+
+/* go */
+resize();
+renderTimeline();
+renderTree();
+loop();
+</script>
+</body>
+</html>
