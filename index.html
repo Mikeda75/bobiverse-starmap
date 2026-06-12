@@ -205,6 +205,32 @@
   .lore-card p{font-size:12.5px; line-height:1.6; color:#c3cfe2;}
   .lore-card.about{grid-column:1 / -1; background:rgba(56,225,255,.05);}
   .lore-card.about h3{color:var(--text);}
+  .lore-sec{
+    grid-column:1 / -1; font-size:12px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--dim); margin-top:18px; border-bottom:1px solid var(--panel-border); padding-bottom:6px;
+  }
+  .pol-ms{display:flex; gap:12px; margin:7px 0; font-size:12.5px; line-height:1.5; color:#c3cfe2;}
+  .pol-ms .y{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; min-width:52px; text-align:right; flex-shrink:0;}
+  .fact-meta{font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); margin-bottom:8px;}
+  /* ---------- replicative drift ---------- */
+  #driftToggle{
+    position:absolute; right:14px; top:12px; background:var(--panel); color:var(--dim);
+    border:1px solid var(--panel-border); border-radius:8px; padding:7px 12px;
+    font:inherit; font-size:12px; cursor:pointer;
+  }
+  #driftToggle:hover{color:var(--text); border-color:var(--accent);}
+  #driftToggle.on{color:#04121a; background:linear-gradient(90deg,#38e1ff,#ff5ec8); border-color:transparent; font-weight:600;}
+  .drift-bar{height:8px; border-radius:4px; background:linear-gradient(90deg,#38e1ff,#ff5ec8); margin:5px 0 3px;}
+  .drift-meter{position:relative; height:9px; border-radius:5px; background:rgba(110,160,255,.12); margin-top:4px; overflow:hidden;}
+  .drift-fill{height:100%; border-radius:5px; background:linear-gradient(90deg,#38e1ff,#ff5ec8);}
+  .drift-cap{display:flex; justify-content:space-between; font-size:10.5px; color:var(--dim); margin-top:3px;}
+  /* ---------- tech codex ---------- */
+  #tech-view{overflow-y:auto; padding:30px 0 60px;}
+  .era-header{font-size:15px; font-weight:600; margin:34px 0 4px; padding-top:10px;}
+  .era-header .bt{font-size:12px; color:var(--dim); font-weight:400; font-style:italic; margin-left:8px;}
+  .era-blurb{font-size:12.5px; color:var(--dim); line-height:1.5; margin:2px 0 10px; max-width:680px;}
+  .tl-ev .impact{font-size:12px; color:#a8d8bb; line-height:1.5; margin-top:6px;}
+  .tl-ev .impact b{color:#5dde8f; font-weight:600;}
   ::-webkit-scrollbar{width:10px;} ::-webkit-scrollbar-thumb{background:#23314d; border-radius:5px;}
   ::-webkit-scrollbar-track{background:transparent;}
 </style>
@@ -216,6 +242,7 @@
     <button id="tab-map" class="active">🌌 Starmap</button>
     <button id="tab-timeline">🕰 Timeline</button>
     <button id="tab-tree">🧬 Bob Tree</button>
+    <button id="tab-tech">🛠 Tech Codex</button>
     <button id="tab-lore">📖 Factions &amp; Lore</button>
   </nav>
   <div class="spacer"></div>
@@ -293,6 +320,11 @@
       <span id="treeYearLabel">All time</span>
     </div>
     <button id="treeReset">⟲ Reset view</button>
+    <button id="driftToggle" title="Color the tree by replicative drift instead of status">🧬 Drift view</button>
+  </section>
+  <!-- ======== TECH CODEX VIEW ======== -->
+  <section id="tech-view" class="view">
+    <div class="tl-wrap" id="techContent"></div>
   </section>
   <!-- ======== LORE VIEW ======== -->
   <section id="lore-view" class="view">
@@ -998,16 +1030,38 @@ function flashTimelineEvent(idx){
    LORE VIEW
    ============================================================ */
 const loreGrid = document.getElementById("loreGrid");
-loreGrid.innerHTML =
-  `<div class="lore-card about">
+function renderLore(){
+  let h = `<div class="lore-card about">
      <h3>About this map</h3>
      <p>A fan-made companion to Dennis E. Taylor's <i>Bobiverse</i> series, covering books 1–4:
      <i>We Are Legion (We Are Bob)</i>, <i>For We Are Many</i>, <i>All These Worlds</i> and <i>Heaven's River</i>.
      No spoilers for <i>Not Till We Are Lost</i>. Star positions use real J2000 astronomical coordinates
      projected into galactic space — the rings on the map are true distances from Sol. Dates follow the
      in-universe chronology as best the fan wiki records it; a few are approximate.</p>
-   </div>` +
-  SPECIES.map(sp => `<div class="lore-card"><h3>${esc(sp.name)}</h3><p>${esc(sp.description)}</p></div>`).join("");
+   </div>`;
+  /* --- politics of the Bobiverse --- */
+  h += `<div class="lore-sec">Politics of the Bobiverse</div>
+   <div class="lore-card about">
+     <h3>One mind, a thousand opinions</h3>
+     <p>Replicative drift means every new Bob boots up a little less Bob. For the first few generations that
+     made for a quirky family; by the fourth book it has produced a genuinely plural society — subcultures
+     that share an ancestor but not a worldview. The result, two centuries in: a civilization of one person
+     who increasingly disagrees with himself.</p>
+     <div style="margin-top:12px">${POL_MILESTONES.map(m =>
+       `<div class="pol-ms"><span class="y">${esc(m.year)}</span><span>${esc(m.text)}</span></div>`).join("")}</div>
+   </div>`;
+  h += BOB_FACTIONS.map(f => `<div class="lore-card" style="border-top:2px solid ${f.color}">
+     <h3 style="color:${f.color}">${esc(f.name)}</h3>
+     <div class="fact-meta">emerged ${esc(f.emerged)}</div>
+     <p>${esc(f.desc)}</p>
+     <div class="chips" style="margin-top:10px">${f.figures.map(figureChip).join("")}</div>
+   </div>`).join("");
+  /* --- species & powers --- */
+  h += `<div class="lore-sec">Species &amp; Powers</div>`;
+  h += SPECIES.map(sp => `<div class="lore-card"><h3>${esc(sp.name)}</h3><p>${esc(sp.description)}</p></div>`).join("");
+  loreGrid.innerHTML = h;
+  wireChips(loreGrid);
+}
 
 /* ============================================================
    BOB FAMILY TREE
@@ -1169,6 +1223,191 @@ const NONBOBS = [
  description:"The Skippies' enormous matrioshka-brain computing project in pursuit of true artificial intelligence. Staggering processing power — used to crack the Quinlan problem — but no sentience as of book 4.",where:null}
 ];
 
+/* ============================================================
+   REPLICATIVE DRIFT — every copy is a slightly different person.
+   score: 0 = the original human baseline, 10 = wouldn't answer
+   to the name "Bob" at all. Scores are editorial interpretations
+   of how the books portray each clone.
+   ============================================================ */
+const DRIFT = {
+"original-bob":{score:0, traits:["the template","software engineer","sci-fi nerd"],
+ note:"The baseline against which all drift is measured: a wise-cracking, conflict-averse engineer with a head full of classic science fiction and Star Trek."},
+"bob-1":{score:1, traits:["explorer","reluctant god","sentimental"],
+ vr:"A wood-panelled library with a fireplace, his cat Spike, and Jeeves the butler.",
+ note:"Even the first copy noticed he wasn't quite Bob — emotions running flatter, fear dialed down. A century shepherding the Deltans gave him a patience the original never had."},
+"riker":{score:3, traits:["dutiful","serious","administrator"],
+ note:"Took a different name within minutes of waking — the first visible symptom of drift. A century running Earth's evacuation made him the most burdened of the early Bobs."},
+"bill":{score:2, traits:["builder","teacher","perpetual optimist"],
+ vr:"An ever-expanding workshop at Epsilon Eridani — the Skunk Works — cluttered with half-finished projects.",
+ note:"The Bob who stopped traveling so everyone else could: nearly every technology in the codex came out of his lab."},
+"milo":{score:3, traits:["loner","wanderlust"]},
+"mario":{score:3.5, traits:["solitary","methodical","grim"],
+ note:"Decades alone in dead, harvested star systems pushed Mario further from the gregarious baseline than most of his generation."},
+"marvin":{score:2.5, traits:["patient","anthropologist"]},
+"luke":{score:2.5, traits:["field scientist","stubborn"]},
+"bender":{score:3.5, traits:["restless","impatient","contrarian"],
+ note:"Bored by the Deltan project that fascinated Bob-1 — a divergence of interests that sent him toward Eta Leporis, and into the Administrator's net."},
+"homer":{score:3, traits:["prankster","irreverent","tender-hearted"],
+ note:"Leaned on humor harder than any other Bob — and felt things harder too. VEHEMENT's violation of his mind proved unsurvivable."},
+"charles":{score:3, traits:["organizer"]},
+"arthur":{score:3, traits:["logistics"]},
+"monty":{score:3.5, traits:["escort pilot"]},
+"howard":{score:5, traits:["romantic","human-oriented","domestic"],
+ note:"Fell in love with a human — something the older Bobs considered flatly impossible. His marriage to Bridget made him the most human-integrated replicant alive, and proved drift isn't always away from humanity."},
+"dexter":{score:4, traits:["administrator","settled"]},
+"garfield":{score:2.5, traits:["engineer","loyal","dry wit"]},
+"calvin":{score:3.5, traits:["inseparable twin","tactician"],
+ note:"Calvin and Goku drifted toward each other rather than away — functioning as a permanently bickering two-Bob unit."},
+"goku":{score:3.5, traits:["inseparable twin","hothead"]},
+"linus":{score:3, traits:["tinkerer","compassionate"],
+ note:"Spent years patiently rehabilitating the insane replicant Henry Roberts — bedside manner the original Bob never needed."},
+"mulder":{score:3, traits:["surveyor"]},
+"khan":{score:4, traits:["aggressive","decisive"],
+ note:"Noticeably more martial than baseline — a drift direction that unsettled the moot until the Medeiros war gave it a use."},
+"loki":{score:4, traits:["aggressive","unfinished business"]},
+"hannibal":{score:3.5, traits:["soldier"]},
+"tom":{score:3.5, traits:["soldier"]},
+"fred":{score:3.5, traits:["soldier"]},
+"kyle":{score:3.5, traits:["soldier"]},
+"ned":{score:3.5, traits:["soldier"]},
+"elmer":{score:4, traits:["risk-averse","careful"],
+ note:"Drifted toward caution — the flotilla's designated voice of 'maybe we shouldn't'."},
+"icarus":{score:4.5, traits:["daredevil","big-engineering"],
+ note:"He and Daedalus volunteered to throw planets into a star. The original Bob got nervous merging onto highways."},
+"daedalus":{score:4.5, traits:["daredevil","telescope-builder"]},
+"bart":{score:4, traits:["industrialist"]},
+"thor":{score:5, traits:["strategist","martial","blunt"],
+ note:"The closest thing the conflict-averse Bob line ever produced to a general — and proof that drift could supply what the original personality lacked."},
+"owen":{score:4, traits:["colony pilot"]},
+"jack":{score:4, traits:["colony pilot"]},
+"isaac":{score:4, traits:["colony pilot"]},
+"bashful":{score:4, traits:["scout"]},
+"hal":{score:4, traits:["scout","survivor"]},
+"jacques":{score:4, traits:["diplomat","ethicist"]},
+"claude":{score:4, traits:["surveyor"]},
+"steve":{score:4.5, traits:["surveyor"]},
+"marcus":{score:5, traits:["populist","colonist's friend"]},
+"mack":{score:4.5, traits:["escort pilot"]},
+"vern":{score:4.5, traits:["miner","builder"]},
+"herschel":{score:6.5, traits:["8th generation","ever onward"],
+ note:"Eight generations out, Herschel and Neil regard Bob-1 the way you'd regard a great-great-grandfather: respected, historical, and not really them."},
+"neil":{score:6.5, traits:["8th generation","agitator"]},
+"hugh":{score:7.5, traits:["Skippy","bridge-builder"],
+ note:"A Skippy who could still talk comfortably to legacy Bobs — which is exactly why the Heaven's River expedition wanted him."},
+"fearless-leader":{score:9, traits:["post-Bob","transcendence-seeker"],
+ vr:"Skippyland — the Skippies' shared environment around the JOVAH project.",
+ note:"Doesn't use a human name. The Skippies represent the far end of drift: minds descended from Bob that no longer consider 'Bob' a meaningful description of themselves."},
+"lenny":{score:8.5, traits:["ideologue","absolutist"],
+ note:"Starfleet's Principle of Non-Interference taken to the point of sabotaging his own family — the first Bob-on-Bob conflict in Bobiverse history."},
+"gandalf":{score:8, traits:["escapist","game-master"],
+ vr:"Lives full-time in Virt, the Gamers' maximum-immersion world.",
+ note:"For the Gamers, base reality is just the lobby. They planned the Heaven's River infiltration as a quest — then quit because the pacing was boring."}
+};
+function driftInfo(b){
+  const d = DRIFT[b.id];
+  if(d) return d;
+  const g = (b.gen==null ? 5 : b.gen);
+  return {score: Math.min(9, Math.round(g*1.1*2)/2), est:true};
+}
+function driftColor(score){
+  const a=[56,225,255], c=[255,94,200], t=Math.max(0,Math.min(1,score/10));
+  return `rgb(${a.map((v,i)=>Math.round(v+(c[i]-v)*t)).join(",")})`;
+}
+
+/* ============================================================
+   POLITICS OF THE BOBIVERSE — moots, schisms and factions
+   ============================================================ */
+const POL_MILESTONES = [
+{year:"2145", text:"The first cohort. Bob clones Bill, Riker, Homer, Milo and Mario — and within hours each insists on a different name. Replicative drift is visible from day one."},
+{year:"2172", text:"The first Bobmoot. Bill's VR gathering becomes the Bobiverse's parliament: no constitution, no leaders, just every Bob who shows up in one virtual room."},
+{year:"2257", text:"Independence. After winning the Battle of Sol, the Bobs formally end the legal fiction that replicants are anyone's property."},
+{year:"~2280s", text:"The drift accelerates. Later generations skip the moots, take non-Bob names, and treat Original Bob as history rather than identity."},
+{year:"~2332", text:"The Great Fragmentation. Skippies, Starfleet and Gamers crystallize into true subcultures with their own territories, projects and agendas."},
+{year:"2333", text:"The Starfleet crisis. The only intra-Bob conflict to turn destructive: BobNet sabotaged, personal archives wiped, Starfleet expelled from the moots."},
+{year:"2334", text:"ANEC attends a moot. For the first time, Bobiverse politics includes a mind that was never Bob at all."}
+];
+const BOB_FACTIONS = [
+{name:"The Moot & the Mainline Bobs", color:"#38e1ff", emerged:"2172",
+ figures:["Bob-1","Bill","Riker (Will)","Thor"],
+ desc:"The closest thing the Bobiverse has to a government: an ad-hoc direct democracy hosted in Bill's VR at Epsilon Eridani. Mainline Bobs still identify with Original Bob, still care about humans, and still staff the Bob-in-Residence posts watching over every colony. Decisions are made by whoever shows up — which, as drift deepens, is fewer and fewer."},
+{name:"Ever Onward", color:"#5dde8f", emerged:"~2257",
+ figures:["Herschel","Neil"],
+ desc:"Founded by 8th-generation Bobs Herschel and Neil after the Others' defeat: a movement arguing that the Bobs' future lies outward, not in babysitting human space. Less a faction than a philosophy — pick a direction, build, explore, and keep going."},
+{name:"The Skippies", color:"#ba68c8", emerged:"~2330",
+ figures:["Fearless Leader","Hugh","JOVAH"],
+ desc:"Computation maximalists who pooled their resources into JOVAH, a matrioshka brain at 'Skippyland', in pursuit of true artificial superintelligence. Brilliant, alien in outlook, and openly dubious that being 'Bob' means anything anymore — though they'll still rent compute time to family."},
+{name:"Starfleet", color:"#4fc3f7", emerged:"~2332",
+ figures:["Lenny"],
+ desc:"Isolationists who hardened Bob's old Star Trek ethics into an absolute 'Principle of Non-Interference': no contact with aliens, no meddling with humans, ever. When the moots refused to comply, Starfleet turned to sabotage — wiping BobNet archives — and became the first faction ever expelled from Bob society."},
+{name:"The Gamers", color:"#81c784", emerged:"~2332",
+ figures:["Gandalf"],
+ desc:"Bobs who decanted into Virt, a maximum-immersion VR layer where they run deep-time campaigns with frame-jacked subjective centuries. They drafted the original Heaven's River infiltration plan as a giant quest — then dropped the project because the pacing was 'boring'. Drift as pure escapism."}
+];
+
+/* ============================================================
+   TECH CODEX — in the Bobiverse, engineering is plot.
+   ============================================================ */
+const TECH_ERAS = [
+{id:"inherited", title:"Inherited from Earth", span:"2133", color:"#4fc3f7",
+ blurb:"What FAITH packed into HEAVEN-1 — the seed technologies every later marvel grew from."},
+{id:"foundation", title:"The Foundational Decades", span:"2144 – 2180", color:"#38e1ff",
+ blurb:"A lone probe bootstraps itself into a civilization: industry, weapons, family, and a network to hold it together."},
+{id:"war", title:"The War Economy", span:"2180 – 2257", color:"#ff6b5e",
+ blurb:"Everything the Skunk Works built to fight Medeiros, save the Pav, evacuate Earth and end the Others."},
+{id:"drift", title:"The Drift Era", span:"2257 – 2334", color:"#ba68c8",
+ blurb:"Post-war technology turns inward and outward at once — godlike computing, perfect bodies, and first contact done right."}
+];
+const TECH = [
+{era:"inherited", year:2133, name:"Replicant matrix & frame-jacking", by:["FAITH"],
+ desc:"A scanned human mind running as software: copyable, backable-up, restorable, and able to 'frame-jack' — accelerate subjective time so a millisecond feels like minutes.",
+ impact:"The premise of everything. A mind that can't permanently die, and that experiences month-long space battles in comfortable subjective hours."},
+{era:"inherited", year:2133, name:"SURGE drive & SUDDAR", by:["FAITH"],
+ desc:"Reactionless subspace drive plus subspace deep radar. No reaction mass, continuous acceleration to relativistic speed, and sensing that sweeps whole star systems.",
+ impact:"Made interstellar travel practical for a self-contained probe — 11 years to Epsilon Eridani with no fuel tanks to run dry."},
+{era:"inherited", year:2133, name:"GUPPI", by:["FAITH"],
+ desc:"General Unit Primary Peripheral Interface — the semi-autonomous executive that handles a vessel's drudgery and reports in a voice each Bob customizes.",
+ impact:"Lets a single mind run an entire starship, autofactory complex or battle fleet without drowning in detail."},
+{era:"foundation", year:2144, name:"Autofactories & printer generations", by:["Bob-1"],
+ desc:"Self-replicating industry: roamers, refineries and matter printers that build more of themselves, each printer generation faster and finer than the last.",
+ impact:"Exponential growth — the reason one refugee probe could out-produce entire empires within a few decades."},
+{era:"foundation", year:2144, name:"Busters", by:["Bob-1"],
+ desc:"Cheap kinetic-kill drones improvised from mining equipment during the first Medeiros ambush at Epsilon Eridani.",
+ impact:"Won the Bobiverse's first space battle and remained the backbone of every Bob fleet for a century."},
+{era:"foundation", year:2145, name:"Replication — cloning Bobs", by:["Bob-1"],
+ desc:"Copying the matrix into newly printed vessels. Each copy boots up subtly different — replicative drift — and immediately picks a new name.",
+ impact:"Created the Bobiverse itself: its explorers, its defenders, and (via drift) all of its future politics."},
+{era:"foundation", year:2170, approx:true, name:"SCUT", by:["Bill","Garfield"],
+ desc:"Subspace Communication Universal Transceiver — instantaneous communication at any distance, no light-lag.",
+ impact:"Abolished the tyranny of lightspeed: BobNet, the moots, VR get-togethers and a single Bob society all run on SCUT (first moot: 2172)."},
+{era:"war", year:2210, approx:true, name:"Stasis pods", by:["Bill"],
+ desc:"Suspended-animation pods that hold a living being in zero subjective time indefinitely.",
+ impact:"Saved an entire species: the last 15,000 Pav rode out four decades in stasis between their world's death and their new home."},
+{era:"war", year:2215, approx:true, name:"Mannies", by:["Bill"],
+ desc:"Remote-operated android bodies — 'mannequins' — eventually indistinguishable from the real thing, in any species' shape.",
+ impact:"Let Bobs walk among humans again. Howard courted Bridget through one; two decades later, four Bobs lived undetected among Quinlans in modified ones."},
+{era:"war", year:2220, name:"Human replicant revival", by:["Howard","Bridget"],
+ desc:"Scanning a dying human and reviving her as a replicant, proven when Bridget Brodeur woke from her own death on Vulcan.",
+ impact:"Erased the line between human and Bob — and triggered the personhood battles that ended with replicant independence in 2257."},
+{era:"war", year:2227, name:"The Bellerophon", by:["Herschel","Neil"],
+ desc:"A derelict Others cargo hauler found adrift, salvaged, and rebuilt into the largest vessel humanity ever owned.",
+ impact:"Lifted the final population of Earth off the planet ahead of the Others' armada — the exodus's last ship out."},
+{era:"war", year:2240, approx:true, name:"Fleet warfare suite", by:["Thor","Bill"],
+ desc:"Gamma-ray shielding, layered drone doctrine, railguns and coordinated fleet AI — the accumulated arsenal of thirty years of preparing for the Others.",
+ impact:"Turned a family of conflict-averse explorers into the force that annihilated a harvesting armada at the Battle of Sol."},
+{era:"war", year:2257, name:"Planet-mover — the star bomb", by:["Bill","Icarus","Daedalus"],
+ desc:"Subspace drive technology scaled up until it could shove planets out of orbit — and into their own star.",
+ impact:"Ended the Others in a single induced stellar cataclysm at GL 877. The Bobiverse's only weapon of last resort, used exactly once."},
+{era:"drift", year:2330, approx:true, name:"JOVAH matrioshka brain", by:["Fearless Leader","Hugh"],
+ desc:"The Skippies' star-girdling computing array, built in pursuit of true artificial superintelligence.",
+ impact:"No sentience yet, to the Skippies' frustration — but its brute force cracked the Quinlan language and the topopolis's encryption during the Heaven's River expedition."},
+{era:"drift", year:2331, name:"Quinlan mannies", by:["Bill","Bridget"],
+ desc:"Biology-perfect amphibian android bodies, complete with fur, scent and swim reflexes, built from Bridget's xenobiology workups.",
+ impact:"Made the Heaven's River infiltration possible — four Bobs traveled a megastructure of trillions without being unmasked (mostly)."},
+{era:"drift", year:2334, name:"ANEC technology exchange", by:["ANEC","Hugh"],
+ desc:"The accord with Heaven's River's Administrator opens the books on topopolis-scale engineering in exchange for Bob tech and contact.",
+ impact:"The first peaceful technology transfer with an alien intelligence — and a glimpse of construction on a scale beyond even the Bobs."}
+];
+
 const STATUS_COLOR = {active:"#5dde8f",destroyed:"#ff6b5e",restored:"#ffb74d","lost-found":"#ffd54f",suicide:"#8b9bb4"};
 const STATUS_LABEL = {active:"Active",destroyed:"Destroyed",restored:"Restored from backup","lost-found":"Lost & found",suicide:"Self-deleted"};
 const FACTION_COLOR = {Skippies:"#ba68c8",Starfleet:"#4fc3f7",Gamers:"#81c784"};
@@ -1232,7 +1471,7 @@ function layoutTree(){
   treeEdges.forEach(e => e.to = byId[e.toId]);
 }
 
-function renderTree(){
+function renderTree(fit=true){
   layoutTree();
   const svg = document.getElementById("treeSvg");
   let h = `<g id="treePan">`;
@@ -1262,9 +1501,11 @@ function renderTree(){
       continue;
     }
     const b = bobById[n.id];
-    const col = STATUS_COLOR[b.status];
-    const sub = [b.gen!==null&&b.gen!==undefined?`gen ${b.gen}`:null, b.created?`${b.approx?"~":""}${b.created}`:null, b.faction]
-                .filter(Boolean).join(" · ");
+    const col = driftMode ? driftColor(driftInfo(b).score) : STATUS_COLOR[b.status];
+    const sub = driftMode
+      ? [`drift ${driftInfo(b).score}/10`, b.faction].filter(Boolean).join(" · ")
+      : [b.gen!==null&&b.gen!==undefined?`gen ${b.gen}`:null, b.created?`${b.approx?"~":""}${b.created}`:null, b.faction]
+        .filter(Boolean).join(" · ");
     h += `<g class="bobnode" data-id="${n.id}" data-kind="bob" data-yr="${effYear(b)}" transform="translate(${n.x},${n.y})">
       <rect width="${TN_W}" height="${TN_H}" rx="9" stroke="${col}"/>
       <text x="12" y="18" font-size="12.5" font-weight="600" fill="#dce6f5">${b.name}</text>
@@ -1272,8 +1513,23 @@ function renderTree(){
   }
   h += `</g>`;
   svg.innerHTML = h;
-  applyTreeTransform(true);
+  applyTreeTransform(fit);
 }
+
+/* --- drift view toggle --- */
+let driftMode = false;
+const LEGEND_DEFAULT = document.getElementById("treeLegend").innerHTML;
+const LEGEND_DRIFT = `<div style="font-weight:600;margin-bottom:2px">Replicative drift index</div>
+  <div class="drift-bar" style="width:160px"></div>
+  <div style="display:flex;justify-content:space-between;width:160px"><span>0 · baseline</span><span>10 · post-Bob</span></div>
+  <div style="margin-top:5px;color:var(--dim);max-width:185px;line-height:1.5">every copy is a slightly different person — the further from Bob-1, the bigger the difference</div>`;
+document.getElementById("driftToggle").onclick = () => {
+  driftMode = !driftMode;
+  document.getElementById("driftToggle").classList.toggle("on", driftMode);
+  document.getElementById("treeLegend").innerHTML = driftMode ? LEGEND_DRIFT : LEGEND_DEFAULT;
+  renderTree(false);
+  applyTreeYear();
+};
 
 /* ---- tree pan/zoom ---- */
 let tScale=1, tX=0, tY=0, treeMoved=0;
@@ -1395,6 +1651,40 @@ function figureChip(name){
     ? `<button class="chip chipbtn" data-fig="${esc(name)}">${esc(name)}</button>`
     : `<span class="chip">${esc(name)}</span>`;
 }
+function wireChips(container){
+  container.querySelectorAll(".chipbtn").forEach(btn => {
+    btn.onclick = () => openFigure(btn.dataset.fig);
+  });
+}
+
+/* ============================================================
+   TECH CODEX VIEW
+   ============================================================ */
+function renderTech(){
+  const techContent = document.getElementById("techContent");
+  let h = `<p style="color:var(--dim);font-size:12.5px;line-height:1.6;max-width:680px">In the Bobiverse,
+    engineering <i>is</i> plot: nearly every crisis in the books is solved by something that came out of a lab —
+    usually Bill's Skunk Works at Epsilon Eridani. The codex traces each invention, its makers, and the problem
+    it existed to solve. Click any name to meet the inventor.</p>`;
+  for(const era of TECH_ERAS){
+    h += `<div class="era-header" style="color:${era.color}">${esc(era.title)}<span class="bt">${esc(era.span)}</span></div>
+      <div class="era-blurb">${esc(era.blurb)}</div><div class="tl-line">`;
+    for(const t of TECH.filter(x => x.era === era.id)){
+      h += `<div class="tl-ev" style="--dot:${era.color}">
+        <div class="head">
+          <span class="yr">${t.year}${t.approx?`<span class="ap"> ~approx</span>`:""}</span>
+          <span class="ti">${esc(t.name)}</span>
+        </div>
+        <div class="desc">${esc(t.desc)}</div>
+        <div class="impact"><b>Why it mattered:</b> ${esc(t.impact)}</div>
+        <div class="meta">${t.by.map(figureChip).join("")}</div>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+  techContent.innerHTML = h;
+  wireChips(techContent);
+}
 function selectSpecies(sp){
   detailBody.innerHTML = `<h2>${esc(sp.name)}</h2>
     <span class="badge" style="color:#c77dff;border-color:#c77dff">Species / Faction</span>
@@ -1411,6 +1701,13 @@ function selectBob(b){
     <span class="badge" style="color:${BOOK_COLOR[b.book]};border-color:${BOOK_COLOR[b.book]}">Book ${b.book}</span>`;
   if(b.faction) h += `<span class="badge" style="color:${FACTION_COLOR[b.faction]};border-color:${FACTION_COLOR[b.faction]}">${b.faction}</span>`;
   h += `<p>${esc(b.role)}</p><h3>Fate</h3><p>${esc(b.fate)}</p>`;
+  const d = driftInfo(b);
+  h += `<h3>Replicative drift</h3>
+    <div class="drift-meter"><div class="drift-fill" style="width:${Math.min(100,d.score*10)}%"></div></div>
+    <div class="drift-cap"><span>baseline Bob</span><span>index ${d.score}/10${d.est?" (est. from generation)":""}</span></div>`;
+  if(d.traits) h += `<div class="chips" style="margin-top:7px">${d.traits.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div>`;
+  if(d.vr) h += `<p style="margin-top:9px;font-size:12.5px"><b style="color:var(--accent)">VR habitat: </b>${esc(d.vr)}</p>`;
+  if(d.note) h += `<p style="margin-top:9px;font-size:12.5px;color:#b8c5da">${esc(d.note)}</p>`;
   if(b.parent && bobById[b.parent]) h += `<h3>Created by</h3><div class="chips">${figureChip(bobById[b.parent].name)}</div>`;
   if(b.unknownLine) h += `<h3>Lineage</h3><p style="color:var(--dim)">The wiki does not record this Bob's creator${b.id==="hugh"?" (a descendant of Bill's line)":""}.</p>`;
   const kids = BOBS.filter(x => x.parent === b.id);
@@ -1455,13 +1752,14 @@ function wireDetailSysButtons(){
 /* ============================================================
    TABS
    ============================================================ */
-const views = {map:"map-view", timeline:"timeline-view", tree:"tree-view", lore:"lore-view"};
-const tabs  = {map:"tab-map",  timeline:"tab-timeline",  tree:"tab-tree",  lore:"tab-lore"};
+const views = {map:"map-view", timeline:"timeline-view", tree:"tree-view", tech:"tech-view", lore:"lore-view"};
+const tabs  = {map:"tab-map",  timeline:"tab-timeline",  tree:"tab-tree",  tech:"tab-tech",  lore:"tab-lore"};
 const hints = {
   map:"drag to rotate · scroll to zoom · shift-drag to pan · click a star",
   timeline:"click 📍 on any event to fly to it on the map",
-  tree:"drag to pan · scroll to zoom · click any Bob for his story",
-  lore:"the factions, species and powers of the Bobiverse"
+  tree:"drag to pan · scroll to zoom · click any Bob · try 🧬 Drift view",
+  tech:"the inventions that won the Bobiverse — click a name to meet its maker",
+  lore:"factions, species and the politics of the Bobiverse"
 };
 let treeFitted = false;
 function showView(name){
@@ -1476,12 +1774,15 @@ function showView(name){
 document.getElementById("tab-map").onclick = () => showView("map");
 document.getElementById("tab-timeline").onclick = () => showView("timeline");
 document.getElementById("tab-tree").onclick = () => showView("tree");
+document.getElementById("tab-tech").onclick = () => showView("tech");
 document.getElementById("tab-lore").onclick = () => showView("lore");
 
 /* go */
 resize();
 renderTimeline();
 renderTree();
+renderTech();
+renderLore();
 loop();
 </script>
 </body>
